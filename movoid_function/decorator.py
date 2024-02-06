@@ -221,3 +221,96 @@ def recover_signature_from_function_only_kwargs(ori_func):
         return modified_func
 
     return dec
+
+
+def recover_signature_from_function_func(ori_func, *args):
+    def dec(run_func):
+        def wrapper():
+            __local = locals()
+            __func_kwargs = {}
+            for __i, __v in func_arg.items():  # noqa
+                if __i == '':
+                    for __v2 in __v:
+                        __func_kwargs[__v2] = __local[__v2]
+                else:
+                    __func_kwargs[__i] = {}
+                    for __v2 in __v:
+                        __func_kwargs[__i][__v2] = __local[__v2]
+            return func(**__func_kwargs)  # noqa
+
+        func_arg_dict = {
+            '': []
+        }
+        parameter_dict = {
+            'arg': {},
+            'arg_default': {},
+            'kwarg': {},
+        }
+        parameters = []
+        docs = [ori_func.__doc__, run_func.__doc__]
+        annotations = {}
+
+        for function, kwargs_name in args:
+            func_arg_dict[kwargs_name] = []
+            docs.append(function.__doc__)
+            annotations.update(function.__annotations__)
+            for i, v in Signature.from_callable(function).parameters.items():
+                func_arg_dict[kwargs_name].append(i)
+                if v.kind == Parameter.POSITIONAL_OR_KEYWORD:
+                    if v.default is Parameter.empty:
+                        parameter_dict['arg'].setdefault(i, v)
+                    else:
+                        parameter_dict['arg_default'].setdefault(i, v)
+                elif v.kind == Parameter.KEYWORD_ONLY:
+                    parameter_dict['kwarg'].setdefault(i, v)
+
+        for i, v in Signature.from_callable(run_func).parameters.items():
+            if i not in func_arg_dict:
+                func_arg_dict[''].append(i)
+                parameter_dict['kwarg'].setdefault(i, Parameter(i, Parameter.KEYWORD_ONLY, default=v.default, annotation=v.annotation))
+
+        for i, v in parameter_dict['arg'].items():
+            parameters.append(v)
+        for i, v in parameter_dict['arg_default'].items():
+            parameters.append(v)
+        for i, v in parameter_dict['kwarg'].items():
+            parameters.append(v)
+        annotations.update(run_func.__annotations__)
+        wrap_code = wrapper.__code__
+        ori_code: CodeType = ori_func.__code__
+        mod_co_arg_count = len([_v for _v in parameters if _v.kind == Parameter.POSITIONAL_OR_KEYWORD])
+        mod_co_kwarg_count = len([_v for _v in parameters if _v.kind == Parameter.KEYWORD_ONLY])
+        mod_co_n_locals = len(parameters) + wrap_code.co_nlocals
+        mod_co_flags = wrap_code.co_flags
+        var_names = [_v.name for _v in parameters]
+        mod_co_flags = mod_co_flags | inspect.CO_VARARGS - inspect.CO_VARARGS
+        mod_co_flags = mod_co_flags | inspect.CO_VARKEYWORDS - inspect.CO_VARKEYWORDS
+        mod_co_var_names = tuple(var_names)
+        mod_co_name = ori_code.co_name
+        default_arg_values = []
+        default_kwarg_values = {}
+        for _v in parameters:
+            if _v.default != Parameter.empty:
+                if _v.kind == Parameter.POSITIONAL_OR_KEYWORD:
+                    default_arg_values.append(_v.default)
+                elif _v.kind == Parameter.KEYWORD_ONLY:
+                    default_kwarg_values[_v.name] = _v.default
+        default_arg_values = tuple(default_arg_values)
+
+        final_code = wrap_code.replace(
+            co_argcount=mod_co_arg_count,
+            co_kwonlyargcount=mod_co_kwarg_count,
+            co_nlocals=mod_co_n_locals,
+            co_varnames=mod_co_var_names,
+            co_name=mod_co_name,
+            co_flags=mod_co_flags,
+        )
+
+        modified_func = FunctionType(final_code, {'func': run_func, 'func_arg': func_arg_dict, 'locals': locals}, name=mod_co_name)
+        modified_func.__doc__ = '\n'.join([_ for _ in docs if _])
+        modified_func.__annotations__ = annotations
+        modified_func.__defaults__ = default_arg_values
+        modified_func.__kwdefaults__ = default_kwarg_values
+        return modified_func
+
+    return dec

@@ -8,3 +8,4 @@
 """
 from .decorator import recover_signature_from_function as wraps
 from .decorator import recover_signature_from_function_only_kwargs as wraps_kw
+from .decorator import recover_signature_from_function_func as wraps_func
