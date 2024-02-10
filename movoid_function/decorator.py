@@ -250,7 +250,27 @@ def recover_signature_from_function_func(ori_func, *args):
         docs = [ori_func.__doc__, run_func.__doc__]
         annotations = {}
 
-        for function, kwargs_name in args:
+        run_kw_parameter = [v for i, v in Signature.from_callable(run_func).parameters.items() if v.default == Parameter.empty]
+        if len(run_kw_parameter) == len(args):
+            args_kw_parameter = run_kw_parameter
+        elif len(run_kw_parameter) == len(args) + 1:
+            args_kw_parameter = run_kw_parameter[1:]
+            kwargs_name = run_kw_parameter[0].name
+            func_arg_dict[kwargs_name] = []
+            for i, v in Signature.from_callable(ori_func).parameters.items():
+                func_arg_dict[kwargs_name].append(i)
+                if v.kind == Parameter.POSITIONAL_OR_KEYWORD:
+                    if v.default is Parameter.empty:
+                        parameter_dict['arg'].setdefault(i, v)
+                    else:
+                        parameter_dict['arg_default'].setdefault(i, v)
+                elif v.kind == Parameter.KEYWORD_ONLY:
+                    parameter_dict['kwarg'].setdefault(i, v)
+        else:
+            raise TypeError(f'you should set {len(args)}~{len(args) + 1} argument in wrapper function for {args},but you set {len(run_kw_parameter)} only')
+
+        for func_index, function in enumerate(args):
+            kwargs_name = args_kw_parameter[func_index].name
             func_arg_dict[kwargs_name] = []
             docs.append(function.__doc__)
             annotations.update(function.__annotations__)
@@ -263,7 +283,7 @@ def recover_signature_from_function_func(ori_func, *args):
                         parameter_dict['arg_default'].setdefault(i, v)
                 elif v.kind == Parameter.KEYWORD_ONLY:
                     parameter_dict['kwarg'].setdefault(i, v)
-
+        print(func_arg_dict)
         for i, v in Signature.from_callable(run_func).parameters.items():
             if i not in func_arg_dict:
                 func_arg_dict[''].append(i)
