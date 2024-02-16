@@ -337,3 +337,32 @@ def recover_signature_from_function_func(ori_func, *args):
         return modified_func
 
     return dec
+
+
+def reset_function_default_value(ori_func):
+    def dec(run_func):
+        @recover_signature_from_function_func(run_func, ori_func)
+        def wrapper(ori_kwargs):
+            return ori_func(**ori_kwargs)
+
+        run_parameter = {i: v for i, v in Signature.from_callable(run_func).parameters.items()}
+        default_arg_values = []
+        default_kwarg_values = {}
+        for i, v in Signature.from_callable(ori_func).parameters.items():
+            if v.default != Parameter.empty:
+                if v.kind == Parameter.POSITIONAL_OR_KEYWORD:
+                    if i in run_parameter and run_parameter[i].default != Parameter.empty:
+                        default_arg_values.append(run_parameter[i].default)
+                    else:
+                        default_arg_values.append(v.default)
+                elif v.kind == Parameter.KEYWORD_ONLY:
+                    if i in run_parameter and run_parameter[i].default != Parameter.empty:
+                        default_kwarg_values[i] = run_parameter[i].default
+                    else:
+                        default_kwarg_values[i] = v.default
+
+        wrapper.__defaults__ = tuple(default_arg_values)
+        wrapper.__kwdefaults__ = default_kwarg_values
+        return wrapper
+
+    return dec
