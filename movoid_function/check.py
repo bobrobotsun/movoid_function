@@ -120,6 +120,9 @@ class CheckFormula:
         self._now_formula = []
         self._result = None
 
+    def __repr__(self):
+        return f'CheckFormula({self._str_formula},{self._check_class.__name__})'
+
     def _analyse_list(self, str_formula) -> list:
         re_list = []
         child = False
