@@ -7,9 +7,9 @@
 # Description   : 
 """
 import inspect
+from inspect import Parameter, Signature
 from types import CodeType, FunctionType
 from typing import Union, Dict, List
-from inspect import Parameter, Signature
 
 
 def get_args_dict_from_function(func) -> Dict[str, Dict[str, Parameter]]:
@@ -28,6 +28,26 @@ def get_args_dict_from_function(func) -> Dict[str, Dict[str, Parameter]]:
             re_dict['kwarg'][i] = v
         else:
             re_dict['arg'][i] = v
+    return re_dict
+
+
+def analyse_args_value_from_function(func, *args, **kwargs):
+    re_dict = {}
+    arg_dict = get_args_dict_from_function(func)
+    for i, v in enumerate(arg_dict['arg'].keys()):
+        re_dict[v] = args[i]
+    if arg_dict['args']:
+        v = list(arg_dict['args'].keys())[0]
+        re_dict[f'*{v}'] = args[len(arg_dict['arg']):]
+    for i in arg_dict['kwarg']:
+        re_dict[i] = kwargs[i]
+    if arg_dict['kwargs']:
+        key = list(arg_dict['kwargs'].keys())[0]
+        temp_kw = {}
+        for i, v in kwargs.items():
+            if i not in arg_dict['kwarg']:
+                temp_kw[i] = v
+        re_dict[f'**{key}'] = temp_kw
     return re_dict
 
 
