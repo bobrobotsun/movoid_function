@@ -51,7 +51,7 @@ class Bool(Type):
         super().__init__(convert=convert, **kwargs)
 
     def __repr__(self):
-        return 'bool'
+        return f'Bool(convert={self._convert})'
 
     def check(self, check_target, convert=None) -> bool:
         check_target = self.convert(check_target, convert)
@@ -75,7 +75,7 @@ class Int(Type):
 
     def __repr__(self):
         limit_text = f'limit={self._limit}, ' if self._limit._str_formula else ''
-        return f'int({limit_text}convert={self._convert})'
+        return f'Int({limit_text}convert={self._convert})'
 
     def check(self, check_target, convert=None) -> bool:
         check_target = self.convert(check_target, convert)
@@ -103,7 +103,7 @@ class Float(Type):
 
     def __repr__(self):
         limit_text = f'limit={self._limit}, ' if self._limit._str_formula else ''
-        return f'float({limit_text}convert={self._convert})'
+        return f'Float({limit_text}convert={self._convert})'
 
     def check(self, check_target, convert=None) -> bool:
         check_target = self.convert(check_target, convert)
@@ -131,7 +131,7 @@ class Number(Type):
 
     def __repr__(self):
         limit_text = f'limit={self._limit}, ' if self._limit._str_formula else ''
-        return f'number({limit_text}convert={self._convert})'
+        return f'Number({limit_text}convert={self._convert})'
 
     def check(self, check_target, convert=None) -> bool:
         check_target = self.convert(check_target, convert)
@@ -167,7 +167,7 @@ class Str(Type):
         char_text = f'char={self._char}, ' if self._char else ''
         limit_text = f'length={self._length}, ' if self._length._str_formula else ''
         regex_text = f'regex={self._regex}, ' if self._regex else ''
-        return f'str({char_text}{limit_text}{regex_text}convert={self._convert})'
+        return f'Str({char_text}{limit_text}{regex_text}convert={self._convert})'
 
     def check(self, check_target, convert=None) -> bool:
         check_target = self.convert(check_target, convert)
@@ -197,7 +197,7 @@ class List(Type):
 
     def __repr__(self):
         length_text = f'length={self._length}, ' if self._length._str_formula else ''
-        return f'list({length_text}convert={self._convert})'
+        return f'List({length_text}convert={self._convert})'
 
     def check(self, check_target, convert=None) -> bool:
         check_target = self.convert(check_target, convert)
@@ -228,7 +228,7 @@ class Tuple(Type):
 
     def __repr__(self):
         length_text = f'length={self._length}, ' if self._length._str_formula else ''
-        return f'tuple({length_text}convert={self._convert})'
+        return f'Tuple({length_text}convert={self._convert})'
 
     def check(self, check_target, convert=None) -> bool:
         check_target = self.convert(check_target, convert)
@@ -259,7 +259,7 @@ class Set(Type):
 
     def __repr__(self):
         length_text = f'length={self._length}, ' if self._length._str_formula else ''
-        return f'set({length_text}convert={self._convert})'
+        return f'Set({length_text}convert={self._convert})'
 
     def check(self, check_target, convert=None) -> bool:
         check_target = self.convert(check_target, convert)
@@ -290,7 +290,7 @@ class Dict(Type):
 
     def __repr__(self):
         length_text = f'length={self._length}, ' if self._length._str_formula else ''
-        return f'dict({length_text}convert={self._convert})'
+        return f'Dict({length_text}convert={self._convert})'
 
     def check(self, check_target, convert=None) -> bool:
         check_target = self.convert(check_target, convert)
@@ -315,17 +315,24 @@ class Dict(Type):
 
 
 class Path(Type):
-    def __init__(self, convert=False, **kwargs):
+    def __init__(self, should_exist=True, convert=False, **kwargs):
         super().__init__(convert=convert, **kwargs)
+        self._should_exist = should_exist
 
     def __repr__(self):
-        return f'path(convert={self._convert})'
+        return f'Path(convert={self._convert})'
 
     def check(self, check_target, convert=None) -> bool:
         check_target = self.convert(check_target, convert)
         if isinstance(check_target, str):
-            re_bool = True
-            re_bool = re_bool and pathlib.Path(check_target).exists()
+            try:
+                tar_path = pathlib.Path(check_target)
+                if self._should_exist:
+                    re_bool = tar_path.exists()
+                else:
+                    re_bool = True
+            except:
+                re_bool = False
         else:
             re_bool = False
         return re_bool
@@ -374,7 +381,7 @@ def check_parameters_type(convert=False, check_arguments=True, check_return=True
         func.__annotations__ = change_annotation
 
         @recover_signature_from_function_func(func)
-        def wrapper(kwargs):
+        def wrapper(**kwargs):
             for _i2, _v2 in kwargs.items():
                 if _i2 in argument_annotation:
                     _v3 = argument_annotation[_i2]
