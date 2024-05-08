@@ -211,7 +211,7 @@ class Str(Type):
                 if not bool(re.search(self._regex, check_target)):
                     fail_str.append(f'{check_target} does not meet rule {self._regex}')
         else:
-            fail_str.append(f'{check_target} is {type(check_target).__name__} not number')
+            fail_str.append(f'{check_target} is {type(check_target).__name__} not str')
         return fail_str
 
     @property
@@ -239,7 +239,7 @@ class List(Type):
             if not self._length.check(len(check_target)):
                 fail_str.append(f'{len(check_target)} length of {check_target} did not match: {self._length.show_all_step()}')
         else:
-            fail_str.append(f'{check_target} is {type(check_target).__name__} not number')
+            fail_str.append(f'{check_target} is {type(check_target).__name__} not list')
         return fail_str
 
     def check(self, check_target, convert=None) -> bool:
@@ -279,7 +279,7 @@ class Tuple(Type):
             if not self._length.check(len(check_target)):
                 fail_str.append(f'{len(check_target)} length of {check_target} did not match: {self._length.show_all_step()}')
         else:
-            fail_str.append(f'{check_target} is {type(check_target).__name__} not number')
+            fail_str.append(f'{check_target} is {type(check_target).__name__} not tuple')
         return fail_str
 
     @property
@@ -310,7 +310,7 @@ class Set(Type):
             if not self._length.check(len(check_target)):
                 fail_str.append(f'{len(check_target)} length of {check_target} did not match: {self._length.show_all_step()}')
         else:
-            fail_str.append(f'{check_target} is {type(check_target).__name__} not number')
+            fail_str.append(f'{check_target} is {type(check_target).__name__} not set')
         return fail_str
 
     @property
@@ -341,7 +341,7 @@ class Dict(Type):
             if not self._length.check(len(check_target)):
                 fail_str.append(f'{len(check_target)} length of {check_target} did not match: {self._length.show_all_step()}')
         else:
-            fail_str.append(f'{check_target} is {type(check_target).__name__} not number')
+            fail_str.append(f'{check_target} is {type(check_target).__name__} not dict')
         return fail_str
 
     @property
@@ -388,7 +388,7 @@ class Path(Type):
             except:
                 fail_str.append(f'{check_target} is not a valid path.')
         else:
-            fail_str.append(f'{check_target} is {type(check_target).__name__} not number')
+            fail_str.append(f'{check_target} is {type(check_target).__name__} not path')
         return fail_str
 
     @property
