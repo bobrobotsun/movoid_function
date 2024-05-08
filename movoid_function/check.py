@@ -123,6 +123,10 @@ class CheckFormula:
     def __repr__(self):
         return f'CheckFormula({self._str_formula},{self._check_class.__name__})'
 
+    @property
+    def formula(self):
+        return self._str_formula
+
     def _analyse_list(self, str_formula) -> list:
         re_list = []
         child = False
@@ -255,12 +259,12 @@ class CheckFormula:
             raise ValueError(f'{list_formula} can not be calculate anymore')
 
     def show_all_step(self):
-        print(self._str_formula)
-        print(self._list_formula)
+        re_str = self._str_formula + '\n' + str(self._list_formula)
         for i, v in enumerate(self._calculate_step):
-            print(f'={v}')
+            re_str += f'\n={v}'
         if self._result is not None:
-            print(f'={self._result}')
+            re_str += f'\n={self._result}'
+        return re_str
 
     def _record_one_step(self, replace=False):
         if replace:

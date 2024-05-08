@@ -7,11 +7,11 @@
 # Description   : 
 """
 
-import json
 import pathlib
 import re
+import traceback
+import typing
 from abc import ABC, abstractmethod
-from typing import Union, Any
 
 from .check import NumberCheck, CheckFormula
 from .decorator import recover_signature_from_function_func
@@ -26,24 +26,36 @@ class Type(ABC):
         pass
 
     @abstractmethod
-    def check(self, check_target, convert=None) -> bool:
+    def convert_function(self, check_target) -> object:
         pass
 
     @abstractmethod
-    def _convert_function(self, check_target):
+    def check_function(self, check_target) -> typing.List[str]:
         pass
+
+    def check(self, check_target, convert=None):
+        try:
+            check_value = self.convert(check_target, convert)
+        except:
+            re_bool = False
+            re_value = f'convert failed:\n{traceback.format_exc()}'
+        else:
+            fail_str = self.check_function(check_value)
+            re_bool = len(fail_str) == 0
+            re_value = check_value if re_bool else fail_str
+        return re_bool, re_value
 
     def convert(self, convert_target, convert=None):
         should_convert = self._convert if convert is None else bool(convert)
         if should_convert:
-            re_value = self._convert_function(convert_target)
+            re_value = self.convert_function(convert_target)
         else:
             re_value = convert_target
         return re_value
 
     @property
     def annotation(self):
-        return Any
+        return typing.Any
 
 
 class Bool(Type):
@@ -53,17 +65,28 @@ class Bool(Type):
     def __repr__(self):
         return f'Bool(convert={self._convert})'
 
-    def check(self, check_target, convert=None) -> bool:
-        check_target = self.convert(check_target, convert)
-        return isinstance(check_target, bool)
+    def convert_function(self, check_target) -> bool:
+        if isinstance(check_target, str):
+            if check_target.lower() in ('true', 'yes'):
+                re_value = True
+            elif check_target.lower() in ('false', 'no'):
+                re_value = False
+            else:
+                raise ValueError(f'we do not know what is <{check_target}> for bool.')
+        else:
+            re_value = bool(check_target)
+        return re_value
 
-    def _convert_function(self, check_target) -> bool:
-        return bool(check_target)
+    def check_function(self, check_target) -> typing.List[str]:
+        fail_str: typing.List[str] = []
+        if not isinstance(check_target, bool):
+            fail_str.append(f'{check_target} is {type(check_target).__name__} not bool')
+        return fail_str
 
     @property
     def annotation(self):
         if self._convert:
-            return Any
+            return typing.Any
         else:
             return bool
 
@@ -74,24 +97,25 @@ class Int(Type):
         self._limit = CheckFormula(limit, NumberCheck)
 
     def __repr__(self):
-        limit_text = f'limit={self._limit}, ' if self._limit._str_formula else ''
+        limit_text = f'limit={self._limit}, ' if self._limit.formula else ''
         return f'Int({limit_text}convert={self._convert})'
 
-    def check(self, check_target, convert=None) -> bool:
-        check_target = self.convert(check_target, convert)
-        if isinstance(check_target, int):
-            re_bool = self._limit.check(check_target)
-        else:
-            re_bool = False
-        return re_bool
-
-    def _convert_function(self, check_target) -> int:
+    def convert_function(self, check_target) -> int:
         return int(check_target)
+
+    def check_function(self, check_target) -> typing.List[str]:
+        fail_str: typing.List[str] = []
+        if isinstance(check_target, int):
+            if not self._limit.check(check_target):
+                fail_str.append(f'{check_target} did not match: {self._limit.show_all_step()}')
+        else:
+            fail_str.append(f'{check_target} is {type(check_target).__name__} not int')
+        return fail_str
 
     @property
     def annotation(self):
         if self._convert:
-            return Union[int, str]
+            return typing.Union[int, str]
         else:
             return int
 
@@ -102,24 +126,25 @@ class Float(Type):
         self._limit = CheckFormula(limit, NumberCheck)
 
     def __repr__(self):
-        limit_text = f'limit={self._limit}, ' if self._limit._str_formula else ''
+        limit_text = f'limit={self._limit}, ' if self._limit.formula else ''
         return f'Float({limit_text}convert={self._convert})'
 
-    def check(self, check_target, convert=None) -> bool:
-        check_target = self.convert(check_target, convert)
-        if isinstance(check_target, float):
-            re_bool = self._limit.check(check_target)
-        else:
-            re_bool = False
-        return re_bool
-
-    def _convert_function(self, check_target) -> float:
+    def convert_function(self, check_target) -> float:
         return float(check_target)
+
+    def check_function(self, check_target) -> typing.List[str]:
+        fail_str: typing.List[str] = []
+        if isinstance(check_target, float):
+            if not self._limit.check(check_target):
+                fail_str.append(f'{check_target} did not match: {self._limit.show_all_step()}')
+        else:
+            fail_str.append(f'{check_target} is {type(check_target).__name__} not float')
+        return fail_str
 
     @property
     def annotation(self):
         if self._convert:
-            return Union[float, str]
+            return typing.Union[float, str]
         else:
             return float
 
@@ -130,30 +155,31 @@ class Number(Type):
         self._limit = CheckFormula(limit, NumberCheck)
 
     def __repr__(self):
-        limit_text = f'limit={self._limit}, ' if self._limit._str_formula else ''
+        limit_text = f'limit={self._limit}, ' if self._limit.formula else ''
         return f'Number({limit_text}convert={self._convert})'
 
-    def check(self, check_target, convert=None) -> bool:
-        check_target = self.convert(check_target, convert)
-        if isinstance(check_target, float) or isinstance(check_target, int):
-            re_bool = self._limit.check(check_target)
-        else:
-            re_bool = False
-        return re_bool
-
-    def _convert_function(self, check_target) -> Union[int, float]:
+    def convert_function(self, check_target) -> typing.Union[int, float]:
         temp = float(check_target)
         if float(int(temp)) == temp:
             return int(temp)
         else:
             return temp
 
+    def check_function(self, check_target) -> typing.List[str]:
+        fail_str: typing.List[str] = []
+        if isinstance(check_target, (int, float)):
+            if not self._limit.check(check_target):
+                fail_str.append(f'{check_target} did not match: {self._limit.show_all_step()}')
+        else:
+            fail_str.append(f'{check_target} is {type(check_target).__name__} not number')
+        return fail_str
+
     @property
     def annotation(self):
         if self._convert:
-            return Union[int, float, str]
+            return typing.Union[int, float, str]
         else:
-            return Union[int, float]
+            return typing.Union[int, float]
 
 
 class Str(Type):
@@ -165,25 +191,28 @@ class Str(Type):
 
     def __repr__(self):
         char_text = f'char={self._char}, ' if self._char else ''
-        limit_text = f'length={self._length}, ' if self._length._str_formula else ''
+        limit_text = f'length={self._length}, ' if self._length.formula else ''
         regex_text = f'regex={self._regex}, ' if self._regex else ''
         return f'Str({char_text}{limit_text}{regex_text}convert={self._convert})'
 
-    def check(self, check_target, convert=None) -> bool:
-        check_target = self.convert(check_target, convert)
-        if isinstance(check_target, str):
-            re_bool = True
-            if self._char:
-                re_bool = re_bool and all([_ in self._char for _ in check_target])
-            re_bool = re_bool and self._length.check(len(check_target))
-            if self._regex:
-                re_bool = re_bool and bool(re.search(self._regex, check_target))
-        else:
-            re_bool = False
-        return re_bool
-
-    def _convert_function(self, check_target) -> str:
+    def convert_function(self, check_target) -> str:
         return str(check_target)
+
+    def check_function(self, check_target) -> typing.List[str]:
+        fail_str: typing.List[str] = []
+        if isinstance(check_target, str):
+            if self._char:
+                char_error = [[_i, _v] for _i, _v in enumerate(check_target) if _v not in self._char]
+                if char_error:
+                    fail_str.append(f'{check_target} contain char more than <{self._char}>:{char_error}')
+            if not self._length.check(len(check_target)):
+                fail_str.append(f'{len(check_target)} length of {check_target} did not match: {self._length.show_all_step()}')
+            if self._regex:
+                if not bool(re.search(self._regex, check_target)):
+                    fail_str.append(f'{check_target} does not meet rule {self._regex}')
+        else:
+            fail_str.append(f'{check_target} is {type(check_target).__name__} not number')
+        return fail_str
 
     @property
     def annotation(self):
@@ -196,8 +225,22 @@ class List(Type):
         self._length = CheckFormula(length, NumberCheck)
 
     def __repr__(self):
-        length_text = f'length={self._length}, ' if self._length._str_formula else ''
+        length_text = f'length={self._length}, ' if self._length.formula else ''
         return f'List({length_text}convert={self._convert})'
+
+    def convert_function(self, check_target) -> list:
+        if isinstance(check_target, str):
+            check_target = eval(check_target)
+        return list(check_target)
+
+    def check_function(self, check_target) -> typing.List[str]:
+        fail_str: typing.List[str] = []
+        if isinstance(check_target, str):
+            if not self._length.check(len(check_target)):
+                fail_str.append(f'{len(check_target)} length of {check_target} did not match: {self._length.show_all_step()}')
+        else:
+            fail_str.append(f'{check_target} is {type(check_target).__name__} not number')
+        return fail_str
 
     def check(self, check_target, convert=None) -> bool:
         check_target = self.convert(check_target, convert)
@@ -208,15 +251,10 @@ class List(Type):
             re_bool = False
         return re_bool
 
-    def _convert_function(self, check_target) -> list:
-        if isinstance(check_target, str):
-            check_target = json.loads(check_target)
-        return list(check_target)
-
     @property
     def annotation(self):
         if self._convert:
-            return Union[list, str]
+            return typing.Union[list, str]
         else:
             return list
 
@@ -227,27 +265,27 @@ class Tuple(Type):
         self._length = CheckFormula(length, NumberCheck)
 
     def __repr__(self):
-        length_text = f'length={self._length}, ' if self._length._str_formula else ''
+        length_text = f'length={self._length}, ' if self._length.formula else ''
         return f'Tuple({length_text}convert={self._convert})'
 
-    def check(self, check_target, convert=None) -> bool:
-        check_target = self.convert(check_target, convert)
-        if isinstance(check_target, tuple):
-            re_bool = True
-            re_bool = re_bool and self._length.check(len(check_target))
-        else:
-            re_bool = False
-        return re_bool
-
-    def _convert_function(self, check_target) -> tuple:
+    def convert_function(self, check_target) -> tuple:
         if isinstance(check_target, str):
-            check_target = json.loads(check_target)
+            check_target = eval(check_target)
         return tuple(check_target)
+
+    def check_function(self, check_target) -> typing.List[str]:
+        fail_str: typing.List[str] = []
+        if isinstance(check_target, str):
+            if not self._length.check(len(check_target)):
+                fail_str.append(f'{len(check_target)} length of {check_target} did not match: {self._length.show_all_step()}')
+        else:
+            fail_str.append(f'{check_target} is {type(check_target).__name__} not number')
+        return fail_str
 
     @property
     def annotation(self):
         if self._convert:
-            return Union[tuple, str]
+            return typing.Union[tuple, str]
         else:
             return tuple
 
@@ -258,27 +296,27 @@ class Set(Type):
         self._length = CheckFormula(length, NumberCheck)
 
     def __repr__(self):
-        length_text = f'length={self._length}, ' if self._length._str_formula else ''
+        length_text = f'length={self._length}, ' if self._length.formula else ''
         return f'Set({length_text}convert={self._convert})'
 
-    def check(self, check_target, convert=None) -> bool:
-        check_target = self.convert(check_target, convert)
-        if isinstance(check_target, set):
-            re_bool = True
-            re_bool = re_bool and self._length.check(len(check_target))
-        else:
-            re_bool = False
-        return re_bool
-
-    def _convert_function(self, check_target) -> set:
+    def convert_function(self, check_target) -> set:
         if isinstance(check_target, str):
-            check_target = json.loads(check_target)
+            check_target = eval(check_target)
         return set(check_target)
+
+    def check_function(self, check_target) -> typing.List[str]:
+        fail_str: typing.List[str] = []
+        if isinstance(check_target, str):
+            if not self._length.check(len(check_target)):
+                fail_str.append(f'{len(check_target)} length of {check_target} did not match: {self._length.show_all_step()}')
+        else:
+            fail_str.append(f'{check_target} is {type(check_target).__name__} not number')
+        return fail_str
 
     @property
     def annotation(self):
         if self._convert:
-            return Union[set, str]
+            return typing.Union[set, str]
         else:
             return set
 
@@ -289,33 +327,33 @@ class Dict(Type):
         self._length = CheckFormula(length, NumberCheck)
 
     def __repr__(self):
-        length_text = f'length={self._length}, ' if self._length._str_formula else ''
+        length_text = f'length={self._length}, ' if self._length.formula else ''
         return f'Dict({length_text}convert={self._convert})'
 
-    def check(self, check_target, convert=None) -> bool:
-        check_target = self.convert(check_target, convert)
-        if isinstance(check_target, dict):
-            re_bool = True
-            re_bool = re_bool and self._length.check(len(check_target))
-        else:
-            re_bool = False
-        return re_bool
-
-    def _convert_function(self, check_target) -> dict:
+    def convert_function(self, check_target) -> dict:
         if isinstance(check_target, str):
-            check_target = json.loads(check_target)
+            check_target = eval(check_target)
         return dict(check_target)
+
+    def check_function(self, check_target) -> typing.List[str]:
+        fail_str: typing.List[str] = []
+        if isinstance(check_target, str):
+            if not self._length.check(len(check_target)):
+                fail_str.append(f'{len(check_target)} length of {check_target} did not match: {self._length.show_all_step()}')
+        else:
+            fail_str.append(f'{check_target} is {type(check_target).__name__} not number')
+        return fail_str
 
     @property
     def annotation(self):
         if self._convert:
-            return Union[dict, str]
+            return typing.Union[dict, str]
         else:
             return dict
 
 
 class Path(Type):
-    def __init__(self, should_exist=True, convert=False, **kwargs):
+    def __init__(self, should_exist=False, convert=False, **kwargs):
         super().__init__(convert=convert, **kwargs)
         self._should_exist = should_exist
 
@@ -337,8 +375,21 @@ class Path(Type):
             re_bool = False
         return re_bool
 
-    def _convert_function(self, check_target):
+    def convert_function(self, check_target):
         return str(check_target)
+
+    def check_function(self, check_target) -> typing.List[str]:
+        fail_str: typing.List[str] = []
+        if isinstance(check_target, str):
+            try:
+                tar_path = pathlib.Path(check_target)
+                if self._should_exist and not tar_path.exists():
+                    fail_str.append(f'{check_target} does not exists.')
+            except:
+                fail_str.append(f'{check_target} is not a valid path.')
+        else:
+            fail_str.append(f'{check_target} is {type(check_target).__name__} not number')
+        return fail_str
 
     @property
     def annotation(self):
@@ -346,15 +397,26 @@ class Path(Type):
 
 
 default_type = {
-    bool: Bool,
-    str: Str,
-    int: Int,
-    float: Float,
-    list: List,
-    set: Set,
-    tuple: Tuple,
-    dict: Dict,
+    "builtin": {
+        bool: Bool,
+        str: Str,
+        int: Int,
+        float: Float,
+        list: List,
+        set: Set,
+        tuple: Tuple,
+        dict: Dict,
+    }
 }
+
+
+def convert_type(target_type, **kwargs):
+    if isinstance(target_type, Type):
+        return target_type
+    elif target_type in default_type['builtin']:
+        return default_type['builtin'][target_type](**kwargs)
+    else:
+        return None
 
 
 def check_parameters_type(convert=False, check_arguments=True, check_return=True):
@@ -363,15 +425,12 @@ def check_parameters_type(convert=False, check_arguments=True, check_return=True
         return_annotation = {}
         change_annotation = {}
         for _i, _v in func.__annotations__.items():
-            if _v in default_type:
-                real_annotation = default_type[_v](convert=convert)
-                change_annotation[_i] = _v
-            elif isinstance(_v, Type):
-                real_annotation = _v
-                change_annotation[_i] = _v.annotation
-            else:
-                change_annotation[_i] = _v
+            _v_convert = convert_type(_v)
+            if _v is None:
                 continue
+            else:
+                real_annotation = _v_convert
+                change_annotation[_i] = _v.annotation
             if _i == 'return':
                 if check_return:
                     return_annotation[_i] = real_annotation
@@ -385,17 +444,17 @@ def check_parameters_type(convert=False, check_arguments=True, check_return=True
             for _i2, _v2 in kwargs.items():
                 if _i2 in argument_annotation:
                     _v3 = argument_annotation[_i2]
-                    check_result = _v3.check(_v2)
-                    if not check_result:
-                        raise TypeError(f'{_i2} is {_v2}({type(_v2).__name__}),but it should be a {_v3}')
-                    kwargs[_i2] = _v3.convert(_v2)
+                    _bool, _value = _v3.check(_v2, convert=convert)
+                    if not _bool:
+                        raise TypeError('\n'.join(_value))
+                    kwargs[_i2] = _value
             re_value = func(**kwargs)
             if 'return' in return_annotation:
                 _v3 = return_annotation['return']
-                check_result = _v3.check(re_value)
-                if not check_result:
-                    raise TypeError(f'return value is {re_value}({type(re_value).__name__}),but it should be a {_v3}')
-                re_value = _v3.convert(re_value)
+                _bool, _value = _v3.check(re_value, convert=convert)
+                if not _bool:
+                    raise TypeError('\n'.join(_value))
+                re_value = _value
             return re_value
 
         return wrapper
