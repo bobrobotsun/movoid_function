@@ -1,1 +1,1 @@
-This is a simple program for developer to 
+This is a simple program for developer to handle functions

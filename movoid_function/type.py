@@ -397,24 +397,22 @@ class Path(Type):
 
 
 default_type = {
-    "builtin": {
-        bool: Bool,
-        str: Str,
-        int: Int,
-        float: Float,
-        list: List,
-        set: Set,
-        tuple: Tuple,
-        dict: Dict,
-    }
+    bool: Bool,
+    str: Str,
+    int: Int,
+    float: Float,
+    list: List,
+    set: Set,
+    tuple: Tuple,
+    dict: Dict,
 }
 
 
 def convert_type(target_type, **kwargs):
     if isinstance(target_type, Type):
         return target_type
-    elif target_type in default_type['builtin']:
-        return default_type['builtin'][target_type](**kwargs)
+    elif target_type in default_type:
+        return default_type[target_type](**kwargs)
     else:
         return None
 
@@ -440,7 +438,7 @@ def check_parameters_type(convert=False, check_arguments=True, check_return=True
         func.__annotations__ = change_annotation
 
         @recover_signature_from_function_func(func)
-        def wrapper(**kwargs):
+        def wrapper(kwargs):
             for _i2, _v2 in kwargs.items():
                 if _i2 in argument_annotation:
                     _v3 = argument_annotation[_i2]
