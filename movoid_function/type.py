@@ -428,7 +428,7 @@ def check_parameters_type(convert=False, check_arguments=True, check_return=True
                 continue
             else:
                 real_annotation = _v_convert
-                change_annotation[_i] = _v.annotation
+                change_annotation[_i] = _v_convert.annotation
             if _i == 'return':
                 if check_return:
                     return_annotation[_i] = real_annotation
