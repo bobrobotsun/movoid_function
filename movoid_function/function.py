@@ -6,6 +6,7 @@
 # Time          : 2024/4/13 16:35
 # Description   : 
 """
+import inspect
 
 
 def empty_function(*args, **kwargs):
@@ -55,3 +56,37 @@ class Function:
     @property
     def lineno(self):
         return self._func.__code__.co_firstlineno
+
+
+class ReplaceFunction:
+    def __init__(self, ori_func, tar_func):
+        self._ori = ori_func
+        self._tar = tar_func
+        self._now = tar_func
+        self.use_tar()
+
+    def __call__(self, *args, **kwargs):
+        return self._now(*args, **kwargs)
+
+    def _call(self, *args, **kwargs):
+        return self._now(*args, **kwargs)
+
+    @property
+    def origin(self):
+        return self._ori
+
+    @property
+    def target(self):
+        return self._tar
+
+    def use_ori(self):
+        self._now = self._ori
+
+    def use_tar(self):
+        self._now = self._tar
+
+
+def replace_function(ori_func, tar_func):
+    ori_package = inspect.getmodule(ori_func)
+    func_name = ori_func.__name__
+    setattr(ori_package, func_name, ReplaceFunction(ori_func, tar_func))
