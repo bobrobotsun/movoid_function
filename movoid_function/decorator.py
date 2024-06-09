@@ -32,22 +32,27 @@ def get_args_dict_from_function(func) -> Dict[str, Dict[str, Parameter]]:
 
 
 def analyse_args_value_from_function(func, *args, **kwargs):
-    re_dict = {}
+    re_dict = {
+        'arg': {},
+        'kwarg': {},
+    }
     arg_dict = get_args_dict_from_function(func)
     for i, v in enumerate(arg_dict['arg'].keys()):
-        re_dict[v] = args[i]
+        re_dict['arg'][v] = args[i]
     if arg_dict['args']:
+        re_dict['args'] = {}
         v = list(arg_dict['args'].keys())[0]
-        re_dict[f'*{v}'] = args[len(arg_dict['arg']):]
+        re_dict['args'][f'{v}'] = list(args[len(arg_dict['arg']):])
     for i in arg_dict['kwarg']:
-        re_dict[i] = kwargs[i]
+        re_dict['kwarg'][i] = kwargs[i]
     if arg_dict['kwargs']:
         key = list(arg_dict['kwargs'].keys())[0]
+        re_dict['kwargs'] = {key: {}}
         temp_kw = {}
         for i, v in kwargs.items():
             if i not in arg_dict['kwarg']:
                 temp_kw[i] = v
-        re_dict[f'**{key}'] = temp_kw
+        re_dict['kwargs'][key] = temp_kw
     return re_dict
 
 
