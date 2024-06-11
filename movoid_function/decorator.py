@@ -269,7 +269,7 @@ def wraps(ori_func):
 
         return create_function_with_parameters_function_args(
             parameters=parameters,
-            real_run_func=ori_func,
+            real_run_func=run_func,
             run_arg_list=func_arg_list,
             wrapper=wrapper,
             func_name=ori_code.co_name,
