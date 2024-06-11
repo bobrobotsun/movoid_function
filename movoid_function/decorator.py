@@ -85,6 +85,11 @@ def combine_parameter_from_functions(ori_func, run_func) -> List[Parameter]:
 
 
 def get_args_name_from_parameters(parameters: List[Parameter]) -> Dict[str, Union[str, List[str]]]:
+    """
+    从一个parameter的列表中获取所有的arg名称，并且传唤为一组dict，可以很有效地明确具体哪个参数是什么kind
+    :param parameters:
+    :return:
+    """
     re_dict = {
         'arg': [],
         'args': '',
@@ -102,6 +107,63 @@ def get_args_name_from_parameters(parameters: List[Parameter]) -> Dict[str, Unio
             re_dict['arg'].append(v.name)
 
     return re_dict
+
+
+def analyse_additional_parameter(name, default=Parameter.empty, kind=Parameter.POSITIONAL_OR_KEYWORD, annotation=None):
+    """
+    将一组信息转换为parameter，参数和Parameter的参数完全一致，只是增加了默认值
+    :param name:
+    :param default:
+    :param kind:
+    :param annotation:
+    :return:
+    """
+    if isinstance(name, list):
+        new_parameter = analyse_additional_parameter(*name)
+    elif isinstance(name, dict):
+        new_parameter = Parameter(**name)
+    else:
+        new_parameter = Parameter(name=str(name), kind=kind, default=default, annotation=annotation)
+    return new_parameter
+
+
+def insert_parameter_into_parameters(parameters: list, *new_parameters):
+    if len(new_parameters) == 0:
+        return
+    if len(parameters) == 0:
+        parameters.append(new_parameters[0])
+        insert_parameter_into_parameters(parameters, *new_parameters[1:])
+    i = 0
+    last_priority = 0
+    new_parameter_priority = [get_parameter_priority(_) for _ in new_parameters]
+    while i < len(parameters):
+        v = parameters[i]
+        v_priority = get_parameter_priority(v)
+        if v_priority != last_priority and v_priority > 1:
+            for j, w in enumerate(new_parameter_priority):
+                if w < v_priority:
+                    parameters.insert(i, new_parameters[j])
+                    i += 1
+        i += 1
+
+
+def get_parameter_priority(parameter):
+    """
+    获取parameter地优先级，一般来说是：positional无默认、positional有默认、*args、keyword、**kwargs
+    :param parameter:
+    :return:
+    """
+    if parameter.kind == Parameter.POSITIONAL_OR_KEYWORD:
+        if parameter.default == Parameter.empty:
+            return 1
+        else:
+            return 2
+    elif parameter.kind == Parameter.VAR_POSITIONAL:
+        return 5
+    elif parameter.kind == Parameter.KEYWORD_ONLY:
+        return 6
+    elif parameter.kind == Parameter.VAR_POSITIONAL:
+        return 10
 
 
 def create_function_with_parameters_function_args(
@@ -174,7 +236,7 @@ def create_function_with_parameters_function_args(
     return modified_func
 
 
-def recover_signature_from_function(ori_func):
+def wraps(ori_func):
     def dec(run_func):
         def wrapper():
             __local = locals()
@@ -217,7 +279,7 @@ def recover_signature_from_function(ori_func):
     return dec
 
 
-def recover_signature_from_function_only_kwargs(ori_func):
+def wraps_kw(ori_func):
     def dec(run_func):
         def wrapper():
             __local = locals()
@@ -259,7 +321,7 @@ def recover_signature_from_function_only_kwargs(ori_func):
     return dec
 
 
-def recover_signature_from_function_func(ori_func, *args):
+def wraps_func(ori_func, *args):
     def dec(run_func):
         def wrapper():
             __local = locals()
@@ -377,7 +439,7 @@ def recover_signature_from_function_func(ori_func, *args):
 
 def reset_function_default_value(ori_func):
     def dec(run_func):
-        @recover_signature_from_function_func(run_func, ori_func)
+        @wraps_func(run_func, ori_func)
         def wrapper(ori_kwargs):
             return ori_func(**ori_kwargs)
 
@@ -404,7 +466,7 @@ def reset_function_default_value(ori_func):
     return dec
 
 
-def add_run_signature_to_function(ori_func):
+def wraps_ori(ori_func):
     def dec(run_func):
         def wrapper():
             __local = locals()
@@ -437,51 +499,7 @@ def add_run_signature_to_function(ori_func):
     return dec
 
 
-def analyse_additional_parameter(name, default=Parameter.empty, kind=Parameter.POSITIONAL_OR_KEYWORD, annotation=None):
-    if isinstance(name, list):
-        new_parameter = analyse_additional_parameter(*name)
-    elif isinstance(name, dict):
-        new_parameter = Parameter(**name)
-    else:
-        new_parameter = Parameter(name=str(name), kind=kind, default=default, annotation=annotation)
-    return new_parameter
-
-
-def insert_parameter_into_parameters(parameters: list, *new_parameters):
-    if len(new_parameters) == 0:
-        return
-    if len(parameters) == 0:
-        parameters.append(new_parameters[0])
-        insert_parameter_into_parameters(parameters, *new_parameters[1:])
-    i = 0
-    last_priority = 0
-    new_parameter_priority = [get_parameter_priority(_) for _ in new_parameters]
-    while i < len(parameters):
-        v = parameters[i]
-        v_priority = get_parameter_priority(v)
-        if v_priority != last_priority and v_priority > 1:
-            for j, w in enumerate(new_parameter_priority):
-                if w < v_priority:
-                    parameters.insert(i, new_parameters[j])
-                    i += 1
-        i += 1
-
-
-def get_parameter_priority(parameter):
-    if parameter.kind == Parameter.POSITIONAL_OR_KEYWORD:
-        if parameter.default == Parameter.empty:
-            return 1
-        else:
-            return 2
-    elif parameter.kind == Parameter.VAR_POSITIONAL:
-        return 5
-    elif parameter.kind == Parameter.KEYWORD_ONLY:
-        return 6
-    elif parameter.kind == Parameter.VAR_POSITIONAL:
-        return 10
-
-
-def add_one_signature_to_function(name, default=Parameter.empty, kind=Parameter.POSITIONAL_OR_KEYWORD, annotation=None):
+def wraps_add_one(name, default=Parameter.empty, kind=Parameter.POSITIONAL_OR_KEYWORD, annotation=None):
     def dec(ori_func):
         def wrapper():
             __local = locals()
@@ -516,7 +534,7 @@ def add_one_signature_to_function(name, default=Parameter.empty, kind=Parameter.
     return dec
 
 
-def add_multi_signature_to_function(*parameters_info):
+def wraps_add_multi(*parameters_info):
     def dec(ori_func):
         def wrapper():
             __local = locals()
