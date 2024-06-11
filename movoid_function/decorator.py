@@ -60,11 +60,18 @@ def combine_parameter_from_functions(ori_func, run_func) -> List[Parameter]:
     re_list = []
     ori_dict = get_args_dict_from_function(ori_func)
     run_dict = get_args_dict_from_function(run_func)
+    for i, v in ori_dict['arg'].items():
+        if v.default == Parameter.empty:
+            re_list.append(v)
     for i, v in run_dict['arg'].items():
-        if i not in ori_dict['arg']:
+        if i not in ori_dict['arg'] and v.default == Parameter.empty:
             re_list.append(v)
     for i, v in ori_dict['arg'].items():
-        re_list.append(v)
+        if v.default != Parameter.empty:
+            re_list.append(v)
+    for i, v in run_dict['arg'].items():
+        if i not in ori_dict['arg'] and v.default != Parameter.empty:
+            re_list.append(v)
     for i, v in ori_dict['args'].items():
         re_list.append(v)
     for i, v in ori_dict['kwarg'].items():
@@ -97,6 +104,76 @@ def get_args_name_from_parameters(parameters: List[Parameter]) -> Dict[str, Unio
     return re_dict
 
 
+def create_function_with_parameters_function_args(
+        parameters,
+        real_run_func,
+        run_arg_list: dict,
+        wrapper,
+        func_name: str,
+        func_doc: str
+):
+    """
+    可以按照既定的参数生成一个函数
+    :param parameters: 新函数的parameters
+    :param real_run_func: 实际要被运行的函数
+    :param run_arg_list: 实际要被运行的函数的参数列表
+    :param wrapper: wrapper函数
+    :param func_name: 新函数名称，一般为ori_func的名称
+    :param func_doc: 新函数的注释，一般为函数的合并
+    :return: 返回目标函数
+    """
+    wrap_code = wrapper.__code__
+
+    mod_co_arg_count = len([_v for _v in parameters if _v.kind == Parameter.POSITIONAL_OR_KEYWORD])
+    mod_co_kwarg_count = len([_v for _v in parameters if _v.kind == Parameter.KEYWORD_ONLY])
+    mod_co_n_locals = len(parameters) + wrap_code.co_nlocals
+    mod_co_flags = wrap_code.co_flags
+    var_names = []
+    var_names_arg = None
+    var_names_kwarg = None
+    for _v in parameters:
+        if _v.kind == Parameter.VAR_POSITIONAL:
+            var_names_arg = _v.name
+        elif _v.kind == Parameter.VAR_KEYWORD:
+            var_names_kwarg = _v.name
+        else:
+            var_names.append(_v.name)
+    if var_names_arg is not None:
+        var_names.append(var_names_arg)
+        mod_co_flags = mod_co_flags | inspect.CO_VARARGS
+    if var_names_kwarg is not None:
+        var_names.append(var_names_kwarg)
+        mod_co_flags = mod_co_flags | inspect.CO_VARKEYWORDS
+    mod_co_var_names = tuple(var_names)
+    mod_co_name = func_name
+    default_arg_values = []
+    default_kwarg_values = {}
+    for _v in parameters:
+        if _v.default != Parameter.empty:
+            if _v.kind == Parameter.POSITIONAL_OR_KEYWORD:
+                default_arg_values.append(_v.default)
+            elif _v.kind == Parameter.KEYWORD_ONLY:
+                default_kwarg_values[_v.name] = _v.default
+    default_arg_values = tuple(default_arg_values)
+
+    final_code = wrap_code.replace(
+        co_argcount=mod_co_arg_count,
+        co_kwonlyargcount=mod_co_kwarg_count,
+        co_nlocals=mod_co_n_locals,
+        co_varnames=mod_co_var_names,
+        co_name=mod_co_name,
+        co_flags=mod_co_flags,
+    )
+    func_annotations = {_.name: _.annotation for _ in parameters if _.annotation != Parameter.empty}
+
+    modified_func = FunctionType(final_code, {'func': real_run_func, 'func_arg': run_arg_list, 'locals': locals}, name=mod_co_name)
+    modified_func.__doc__ = func_doc
+    modified_func.__annotations__ = func_annotations
+    modified_func.__defaults__ = default_arg_values
+    modified_func.__kwdefaults__ = default_kwarg_values
+    return modified_func
+
+
 def recover_signature_from_function(ori_func):
     def dec(run_func):
         def wrapper():
@@ -116,59 +193,26 @@ def recover_signature_from_function(ori_func):
 
         parameters = combine_parameter_from_functions(ori_func, run_func)
         func_arg_list = get_args_name_from_parameters(parameters)
-        wrap_code = wrapper.__code__
         ori_code: CodeType = ori_func.__code__
+        annotations = {}
+        annotations.update(run_func.__annotations__)
+        annotations.update(ori_func.__annotations__)
 
-        mod_co_arg_count = len([_v for _v in parameters if _v.kind == Parameter.POSITIONAL_OR_KEYWORD])
-        mod_co_kwarg_count = len([_v for _v in parameters if _v.kind == Parameter.KEYWORD_ONLY])
-        mod_co_n_locals = len(parameters) + wrap_code.co_nlocals
-        mod_co_flags = wrap_code.co_flags
-        var_names = []
-        var_names_arg = None
-        var_names_kwarg = None
-        for _v in parameters:
-            if _v.kind == Parameter.VAR_POSITIONAL:
-                var_names_arg = _v.name
-            elif _v.kind == Parameter.VAR_KEYWORD:
-                var_names_kwarg = _v.name
-            else:
-                var_names.append(_v.name)
-        if var_names_arg is not None:
-            var_names.append(var_names_arg)
-            mod_co_flags = mod_co_flags | inspect.CO_VARARGS
-        if var_names_kwarg is not None:
-            var_names.append(var_names_kwarg)
-            mod_co_flags = mod_co_flags | inspect.CO_VARKEYWORDS
-        mod_co_var_names = tuple(var_names)
-        mod_co_name = ori_code.co_name
-        default_arg_values = []
-        default_kwarg_values = {}
-        for _v in parameters:
-            if _v.default != Parameter.empty:
-                if _v.kind == Parameter.POSITIONAL_OR_KEYWORD:
-                    default_arg_values.append(_v.default)
-                elif _v.kind == Parameter.KEYWORD_ONLY:
-                    default_kwarg_values[_v.name] = _v.default
-        default_arg_values = tuple(default_arg_values)
-
-        final_code = wrap_code.replace(
-            co_argcount=mod_co_arg_count,
-            co_kwonlyargcount=mod_co_kwarg_count,
-            co_nlocals=mod_co_n_locals,
-            co_varnames=mod_co_var_names,
-            co_name=mod_co_name,
-            co_flags=mod_co_flags,
-        )
-
-        modified_func = FunctionType(final_code, {'func': run_func, 'func_arg': func_arg_list, 'locals': locals}, name=mod_co_name)
         ori_doc = '' if ori_func.__doc__ is None else ori_func.__doc__
         run_doc = '' if run_func.__doc__ is None else run_func.__doc__
-        modified_func.__doc__ = ori_doc + '\n' + run_doc
-        modified_func.__doc__.strip('\n')
-        modified_func.__annotations__ = ori_func.__annotations__
-        modified_func.__defaults__ = default_arg_values
-        modified_func.__kwdefaults__ = default_kwarg_values
-        return modified_func
+        all_doc = ori_doc + '\n' + run_doc
+        all_doc.strip('\n')
+        if all_doc == '':
+            all_doc = None
+
+        return create_function_with_parameters_function_args(
+            parameters=parameters,
+            real_run_func=ori_func,
+            run_arg_list=func_arg_list,
+            wrapper=wrapper,
+            func_name=ori_code.co_name,
+            func_doc=all_doc
+        )
 
     return dec
 
@@ -191,59 +235,26 @@ def recover_signature_from_function_only_kwargs(ori_func):
 
         parameters = combine_parameter_from_functions(ori_func, run_func)
         func_arg_list = get_args_name_from_parameters(parameters)
-        wrap_code = wrapper.__code__
         ori_code: CodeType = ori_func.__code__
+        annotations = {}
+        annotations.update(run_func.__annotations__)
+        annotations.update(ori_func.__annotations__)
 
-        mod_co_arg_count = len([_v for _v in parameters if _v.kind == Parameter.POSITIONAL_OR_KEYWORD])
-        mod_co_kwarg_count = len([_v for _v in parameters if _v.kind == Parameter.KEYWORD_ONLY])
-        mod_co_n_locals = len(parameters) + wrap_code.co_nlocals
-        mod_co_flags = wrap_code.co_flags
-        var_names = []
-        var_names_arg = None
-        var_names_kwarg = None
-        for _v in parameters:
-            if _v.kind == Parameter.VAR_POSITIONAL:
-                var_names_arg = _v.name
-            elif _v.kind == Parameter.VAR_KEYWORD:
-                var_names_kwarg = _v.name
-            else:
-                var_names.append(_v.name)
-        if var_names_arg is not None:
-            var_names.append(var_names_arg)
-            mod_co_flags = mod_co_flags | inspect.CO_VARARGS
-        if var_names_kwarg is not None:
-            var_names.append(var_names_kwarg)
-            mod_co_flags = mod_co_flags | inspect.CO_VARKEYWORDS
-        mod_co_var_names = tuple(var_names)
-        mod_co_name = ori_code.co_name
-        default_arg_values = []
-        default_kwarg_values = {}
-        for _v in parameters:
-            if _v.default != Parameter.empty:
-                if _v.kind == Parameter.POSITIONAL_OR_KEYWORD:
-                    default_arg_values.append(_v.default)
-                elif _v.kind == Parameter.KEYWORD_ONLY:
-                    default_kwarg_values[_v.name] = _v.default
-        default_arg_values = tuple(default_arg_values)
-
-        final_code = wrap_code.replace(
-            co_argcount=mod_co_arg_count,
-            co_kwonlyargcount=mod_co_kwarg_count,
-            co_nlocals=mod_co_n_locals,
-            co_varnames=mod_co_var_names,
-            co_name=mod_co_name,
-            co_flags=mod_co_flags,
-        )
-
-        modified_func = FunctionType(final_code, {'func': run_func, 'func_arg': func_arg_list, 'locals': locals}, name=mod_co_name)
         ori_doc = '' if ori_func.__doc__ is None else ori_func.__doc__
         run_doc = '' if run_func.__doc__ is None else run_func.__doc__
-        modified_func.__doc__ = ori_doc + '\n' + run_doc
-        modified_func.__doc__.strip('\n')
-        modified_func.__annotations__ = ori_func.__annotations__
-        modified_func.__defaults__ = default_arg_values
-        modified_func.__kwdefaults__ = default_kwarg_values
-        return modified_func
+        all_doc = ori_doc + '\n' + run_doc
+        all_doc.strip('\n')
+        if all_doc == '':
+            all_doc = None
+
+        return create_function_with_parameters_function_args(
+            parameters=parameters,
+            real_run_func=run_func,
+            run_arg_list=func_arg_list,
+            wrapper=wrapper,
+            func_name=ori_code.co_name,
+            func_doc=all_doc
+        )
 
     return dec
 
@@ -389,5 +400,152 @@ def reset_function_default_value(ori_func):
         wrapper.__defaults__ = tuple(default_arg_values)
         wrapper.__kwdefaults__ = default_kwarg_values
         return wrapper
+
+    return dec
+
+
+def add_run_signature_to_function(ori_func):
+    def dec(run_func):
+        def wrapper():
+            __local = locals()
+            __func_args = []
+            __func_kwargs = {}
+            for __i in func_arg['arg']:  # noqa
+                if __i in __local:
+                    __func_args += [__local[__i]]
+            if func_arg['args'] and func_arg['args'] in __local:  # noqa
+                __func_args += __local[func_arg['args']]  # noqa
+            for __i in func_arg['kwarg']:  # noqa
+                __func_kwargs[__i] = __local[__i]  # noqa
+            if func_arg['kwargs'] and func_arg['kwargs'] in __local:  # noqa
+                __func_kwargs.update(__local[func_arg['kwargs']])  # noqa
+            return func(*__func_args, **__func_kwargs)  # noqa
+
+        parameters = combine_parameter_from_functions(ori_func, run_func)
+        func_arg_list = get_args_name_from_parameters(list(Signature.from_callable(ori_func).parameters.values()))
+        ori_code: CodeType = ori_func.__code__
+
+        return create_function_with_parameters_function_args(
+            parameters=parameters,
+            real_run_func=ori_func,
+            run_arg_list=func_arg_list,
+            wrapper=wrapper,
+            func_name=ori_code.co_name,
+            func_doc=ori_func.__doc__
+        )
+
+    return dec
+
+
+def analyse_additional_parameter(name, default=Parameter.empty, kind=Parameter.POSITIONAL_OR_KEYWORD, annotation=None):
+    if isinstance(name, list):
+        new_parameter = analyse_additional_parameter(*name)
+    elif isinstance(name, dict):
+        new_parameter = Parameter(**name)
+    else:
+        new_parameter = Parameter(name=str(name), kind=kind, default=default, annotation=annotation)
+    return new_parameter
+
+
+def insert_parameter_into_parameters(parameters: list, *new_parameters):
+    if len(new_parameters) == 0:
+        return
+    if len(parameters) == 0:
+        parameters.append(new_parameters[0])
+        insert_parameter_into_parameters(parameters, *new_parameters[1:])
+    i = 0
+    last_priority = 0
+    new_parameter_priority = [get_parameter_priority(_) for _ in new_parameters]
+    while i < len(parameters):
+        v = parameters[i]
+        v_priority = get_parameter_priority(v)
+        if v_priority != last_priority and v_priority > 1:
+            for j, w in enumerate(new_parameter_priority):
+                if w < v_priority:
+                    parameters.insert(i, new_parameters[j])
+                    i += 1
+        i += 1
+
+
+def get_parameter_priority(parameter):
+    if parameter.kind == Parameter.POSITIONAL_OR_KEYWORD:
+        if parameter.default == Parameter.empty:
+            return 1
+        else:
+            return 2
+    elif parameter.kind == Parameter.VAR_POSITIONAL:
+        return 5
+    elif parameter.kind == Parameter.KEYWORD_ONLY:
+        return 6
+    elif parameter.kind == Parameter.VAR_POSITIONAL:
+        return 10
+
+
+def add_one_signature_to_function(name, default=Parameter.empty, kind=Parameter.POSITIONAL_OR_KEYWORD, annotation=None):
+    def dec(ori_func):
+        def wrapper():
+            __local = locals()
+            __func_args = []
+            __func_kwargs = {}
+            for __i in func_arg['arg']:  # noqa
+                if __i in __local:
+                    __func_args += [__local[__i]]
+            if func_arg['args'] and func_arg['args'] in __local:  # noqa
+                __func_args += __local[func_arg['args']]  # noqa
+            for __i in func_arg['kwarg']:  # noqa
+                __func_kwargs[__i] = __local[__i]  # noqa
+            if func_arg['kwargs'] and func_arg['kwargs'] in __local:  # noqa
+                __func_kwargs.update(__local[func_arg['kwargs']])  # noqa
+            return func(*__func_args, **__func_kwargs)  # noqa
+
+        parameters = list(Signature.from_callable(ori_func).parameters.values())
+        new_parameter = analyse_additional_parameter(name=name, default=default, kind=kind, annotation=annotation)
+        insert_parameter_into_parameters(parameters, new_parameter)
+        func_arg_list = get_args_name_from_parameters(parameters)
+        ori_code: CodeType = ori_func.__code__
+
+        return create_function_with_parameters_function_args(
+            parameters=parameters,
+            real_run_func=ori_func,
+            run_arg_list=func_arg_list,
+            wrapper=wrapper,
+            func_name=ori_code.co_name,
+            func_doc=ori_func.__doc__
+        )
+
+    return dec
+
+
+def add_multi_signature_to_function(*parameters_info):
+    def dec(ori_func):
+        def wrapper():
+            __local = locals()
+            __func_args = []
+            __func_kwargs = {}
+            for __i in func_arg['arg']:  # noqa
+                if __i in __local:
+                    __func_args += [__local[__i]]
+            if func_arg['args'] and func_arg['args'] in __local:  # noqa
+                __func_args += __local[func_arg['args']]  # noqa
+            for __i in func_arg['kwarg']:  # noqa
+                __func_kwargs[__i] = __local[__i]  # noqa
+            if func_arg['kwargs'] and func_arg['kwargs'] in __local:  # noqa
+                __func_kwargs.update(__local[func_arg['kwargs']])  # noqa
+            return func(*__func_args, **__func_kwargs)  # noqa
+
+        parameters = list(Signature.from_callable(ori_func).parameters.values())
+        new_parameters = [analyse_additional_parameter(_) for _ in parameters_info]
+        insert_parameter_into_parameters(parameters, *new_parameters)
+        func_arg_list = get_args_name_from_parameters(list(Signature.from_callable(ori_func).parameters.values()))
+        ori_code: CodeType = ori_func.__code__
+
+        return create_function_with_parameters_function_args(
+            parameters=parameters,
+            real_run_func=ori_func,
+            run_arg_list=func_arg_list,
+            wrapper=wrapper,
+            func_name=ori_code.co_name,
+            func_doc=ori_func.__doc__,
+        )
 
     return dec
