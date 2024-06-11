@@ -14,7 +14,7 @@ import typing
 from abc import ABC, abstractmethod
 
 from .check import NumberCheck, CheckFormula
-from .decorator import recover_signature_from_function_func
+from .decorator import wraps_func
 
 
 class Type(ABC):
@@ -437,7 +437,7 @@ def check_parameters_type(convert=False, check_arguments=True, check_return=True
                     argument_annotation[_i] = real_annotation
         func.__annotations__ = change_annotation
 
-        @recover_signature_from_function_func(func)
+        @wraps_func(func)
         def wrapper(kwargs):
             for _i2, _v2 in kwargs.items():
                 if _i2 in argument_annotation:
