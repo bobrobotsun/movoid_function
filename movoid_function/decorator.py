@@ -188,7 +188,6 @@ def create_function_with_parameters_function_args(
 
     mod_co_arg_count = len([_v for _v in parameters if _v.kind == Parameter.POSITIONAL_OR_KEYWORD])
     mod_co_kwarg_count = len([_v for _v in parameters if _v.kind == Parameter.KEYWORD_ONLY])
-    mod_co_n_locals = len(parameters) + wrap_code.co_nlocals
     mod_co_flags = wrap_code.co_flags
     var_names = []
     var_names_arg = None
@@ -206,7 +205,9 @@ def create_function_with_parameters_function_args(
     if var_names_kwarg is not None:
         var_names.append(var_names_kwarg)
         mod_co_flags = mod_co_flags | inspect.CO_VARKEYWORDS
-    var_names += wrap_code.co_varnames
+    for _var_name in wrap_code.co_varnames:
+        if _var_name not in var_names:
+            var_names.append(_var_name)
     mod_co_var_names = tuple(var_names)
     mod_co_name = func_name
     default_arg_values = []
@@ -222,7 +223,7 @@ def create_function_with_parameters_function_args(
     final_code = wrap_code.replace(
         co_argcount=mod_co_arg_count,
         co_kwonlyargcount=mod_co_kwarg_count,
-        co_nlocals=mod_co_n_locals,
+        co_nlocals=len(mod_co_var_names),
         co_varnames=mod_co_var_names,
         co_name=mod_co_name,
         co_flags=mod_co_flags,
@@ -402,11 +403,13 @@ def wraps_func(ori_func, *args):
         ori_code: CodeType = ori_func.__code__
         mod_co_arg_count = len([_v for _v in parameters if _v.kind == Parameter.POSITIONAL_OR_KEYWORD])
         mod_co_kwarg_count = len([_v for _v in parameters if _v.kind == Parameter.KEYWORD_ONLY])
-        mod_co_n_locals = len(parameters) + wrap_code.co_nlocals
         mod_co_flags = wrap_code.co_flags
         var_names = [_v.name for _v in parameters]
         mod_co_flags = mod_co_flags | inspect.CO_VARARGS - inspect.CO_VARARGS
         mod_co_flags = mod_co_flags | inspect.CO_VARKEYWORDS - inspect.CO_VARKEYWORDS
+        for _var_name in wrap_code.co_varnames:
+            if _var_name not in var_names:
+                var_names.append(_var_name)
         mod_co_var_names = tuple(var_names)
         mod_co_name = ori_code.co_name
         default_arg_values = []
@@ -422,7 +425,7 @@ def wraps_func(ori_func, *args):
         final_code = wrap_code.replace(
             co_argcount=mod_co_arg_count,
             co_kwonlyargcount=mod_co_kwarg_count,
-            co_nlocals=mod_co_n_locals,
+            co_nlocals=len(mod_co_var_names),
             co_varnames=mod_co_var_names,
             co_name=mod_co_name,
             co_flags=mod_co_flags,
