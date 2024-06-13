@@ -206,6 +206,7 @@ def create_function_with_parameters_function_args(
     if var_names_kwarg is not None:
         var_names.append(var_names_kwarg)
         mod_co_flags = mod_co_flags | inspect.CO_VARKEYWORDS
+    var_names += wrap_code.co_varnames
     mod_co_var_names = tuple(var_names)
     mod_co_name = func_name
     default_arg_values = []
