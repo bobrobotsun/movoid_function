@@ -37,9 +37,10 @@ class Function:
 
     def __call__(self, *args, **kwargs):
         if args or kwargs:
-            self._func(*args, **kwargs)
+            re_value = self._func(*args, **kwargs)
         else:
-            self._func(*self._args, **self._kwargs)
+            re_value = self._func(*self._args, **self._kwargs)
+        return re_value
 
     @property
     def id(self):
