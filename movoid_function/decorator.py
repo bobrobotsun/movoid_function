@@ -268,6 +268,7 @@ def wraps(ori_func):
     :param ori_func:
     :return:
     """
+
     def dec(run_func):
         def wrapper():
             __local = locals()
@@ -316,6 +317,7 @@ def wraps_kw(ori_func):
     :param ori_func:
     :return:
     """
+
     def dec(run_func):
         def wrapper():
             __local = locals()
@@ -365,6 +367,7 @@ def wraps_func(ori_func, *args):
     :param args: 每个都必须是一个函数
     :return:
     """
+
     def dec(run_func):
         def wrapper():
             __local = locals()
@@ -499,6 +502,7 @@ def test2(a=2):
     这个功能可以有效地创建一些傻瓜函数
     :param ori_func: 目标函数，也就是需要被copy的函数
     """
+
     def dec(run_func):
         @wraps_func(run_func, ori_func)
         def wrapper(ori_kwargs):
@@ -532,6 +536,7 @@ def wraps_ori(ori_func):
     装饰器专用函数，本身执行的时候只运行ori函数本身，完全忽略run func。只是允许run func额外传入一些参数而已
     :param ori_func:
     """
+
     def dec(run_func):
         def wrapper():
             __local = locals()
@@ -572,6 +577,7 @@ def wraps_add_one(name, default=Parameter.empty, kind=Parameter.POSITIONAL_OR_KE
     :param kind: 参数类型，默认POSITIONAL_OR_KEYWORD
     :param annotation: 参数的注释，默认为空
     """
+
     def dec(ori_func):
         def wrapper():
             __local = locals()
@@ -611,6 +617,7 @@ def wraps_add_multi(*parameters_info):
     装饰器专用函数，对函数新增不定多个参数
     :param parameters_info: 每个参数都必须是一个列表，列表长度为1~4，分别对应name（名称）、default（默认值，默认没有默认值）、kind（参数类型，默认POSITIONAL_OR_KEYWORD）、annotation（注释，默认为空）
     """
+
     def dec(ori_func):
         def wrapper():
             __local = locals()
@@ -643,3 +650,21 @@ def wraps_add_multi(*parameters_info):
         )
 
     return dec
+
+
+def run_function_with_basic_args_and_supplement(ori_func, ori_args, ori_kwargs, other_func, other_args=None, other_kwargs=None):
+    """
+    在基础args和kwargs上，使用其他的args和kwargs对初始args和kwargs进行补充。在补充完毕后，传入函数进行运行。
+    如果基础的args和kwargs存在多余的参数，那么也会被相应的删除
+    :param ori_func: 原始的function
+    :param ori_args: 基础args
+    :param ori_kwargs: 基础kwargs
+    :param other_func: 其他来源的function
+    :param other_args: 补充args
+    :param other_kwargs: 补充kwargs
+    :return: 运行完毕后，返回
+    """
+    args = []
+    kwargs = {}
+    arg_dict = {}
+    return ori_func(*args, **kwargs)
