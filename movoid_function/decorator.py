@@ -13,6 +13,11 @@ from typing import Union, Dict, List
 
 
 def get_args_dict_from_function(func) -> Dict[str, Dict[str, Parameter]]:
+    """
+    获得函数的参数分类，一共分成四类，返回一个4键值的dict
+    :param func: 目标函数
+    :return: key分别是arg、args、kwarg、kwargs的dict
+    """
     re_dict = {
         'arg': {},
         'args': {},
@@ -32,6 +37,13 @@ def get_args_dict_from_function(func) -> Dict[str, Dict[str, Parameter]]:
 
 
 def analyse_args_value_from_function(func, *args, **kwargs):
+    """
+    获得函数和对其传入的参数，解析每个参数分别的类型，和名称-值的对应关系
+    :param func: 目标函数
+    :param args: 参数，原样传入
+    :param kwargs: 参数，原样传入
+    :return: 一个dict，包含2~4个key：arg[、args]、kwarg[、kwargs]
+    """
     re_dict = {
         'arg': {},
         'kwarg': {},
@@ -57,6 +69,12 @@ def analyse_args_value_from_function(func, *args, **kwargs):
 
 
 def combine_parameter_from_functions(ori_func, run_func) -> List[Parameter]:
+    """
+    获得两个函数，返回两个函数的合成函数的参数列表
+    :param ori_func: 原始函数（被装饰器传入的）
+    :param run_func: 运行函数（被装饰器装饰的）
+    :return: 合成的参数列表
+    """
     re_list = []
     ori_dict = get_args_dict_from_function(ori_func)
     run_dict = get_args_dict_from_function(run_func)
@@ -86,9 +104,9 @@ def combine_parameter_from_functions(ori_func, run_func) -> List[Parameter]:
 
 def get_args_name_from_parameters(parameters: List[Parameter]) -> Dict[str, Union[str, List[str]]]:
     """
-    从一个parameter的列表中获取所有的arg名称，并且传唤为一组dict，可以很有效地明确具体哪个参数是什么kind
-    :param parameters:
-    :return:
+    从一个parameter的列表中获取所有的arg名称，并且转换为一组dict，可以很有效地明确具体哪个参数是什么kind
+    :param parameters: 参数列表
+    :return: 合成的dict
     """
     re_dict = {
         'arg': [],
@@ -128,6 +146,12 @@ def analyse_additional_parameter(name, default=Parameter.empty, kind=Parameter.P
 
 
 def insert_parameter_into_parameters(parameters: list, *new_parameters):
+    """
+    将新的参数插入到已有的参数列表中，保证其不混乱
+    :param parameters: 已有的参数列表
+    :param new_parameters: 新的参数，以*args的方式传入即可
+    :return: 无，传入的list已经被改变了
+    """
     if len(new_parameters) == 0:
         return
     if len(parameters) == 0:
@@ -239,6 +263,11 @@ def create_function_with_parameters_function_args(
 
 
 def wraps(ori_func):
+    """
+    装饰器专用，保证被装饰器装饰后的函数，保证名称、参数列表等信息不会因为装饰和发生巨大异变，是一个比function tool的wraps更好的装饰器专用装饰器
+    :param ori_func:
+    :return:
+    """
     def dec(run_func):
         def wrapper():
             __local = locals()
@@ -282,6 +311,11 @@ def wraps(ori_func):
 
 
 def wraps_kw(ori_func):
+    """
+    装饰器专用装饰器，可以在没有*args的情况下，把所有参数都通过kwargs的形式传入
+    :param ori_func:
+    :return:
+    """
     def dec(run_func):
         def wrapper():
             __local = locals()
@@ -324,6 +358,13 @@ def wraps_kw(ori_func):
 
 
 def wraps_func(ori_func, *args):
+    """
+    装饰器专用装饰器
+    传入若干个函数，可以令被装饰器装饰的函数执行若干个函数的功能，但是必须保证这些函数在传入的时候没有*args，以保证每个函数都能精准传递参数
+    :param ori_func: 一般是被装饰器装饰的函数，
+    :param args: 每个都必须是一个函数
+    :return:
+    """
     def dec(run_func):
         def wrapper():
             __local = locals()
@@ -442,6 +483,22 @@ def wraps_func(ori_func, *args):
 
 
 def reset_function_default_value(ori_func):
+    """
+    如果想要定义一个函数，这个函数的功能和已有的函数完全一致，但是默认输入值发生变化，那么可以用这个来作为装饰器
+    被装饰的函数内部不需要有任何执行内容，输入pass即可（输入任何内容都不会执行）
+    根据被装饰的函数的参数输入的默认值来作为新的默认值。没有输入的话，则使用原函数的默认值
+    样例如下：
+def test1(a=1,b=2,c=4):
+    ...
+
+@reset_function_default_value
+def test2(a=2):
+    pass
+
+    此时test2就是一个默认值为a=2,b=2,c=4的执行test1完整功能的函数
+    这个功能可以有效地创建一些傻瓜函数
+    :param ori_func: 目标函数，也就是需要被copy的函数
+    """
     def dec(run_func):
         @wraps_func(run_func, ori_func)
         def wrapper(ori_kwargs):
@@ -471,6 +528,10 @@ def reset_function_default_value(ori_func):
 
 
 def wraps_ori(ori_func):
+    """
+    装饰器专用函数，本身执行的时候只运行ori函数本身，完全忽略run func。只是允许run func额外传入一些参数而已
+    :param ori_func:
+    """
     def dec(run_func):
         def wrapper():
             __local = locals()
@@ -504,6 +565,13 @@ def wraps_ori(ori_func):
 
 
 def wraps_add_one(name, default=Parameter.empty, kind=Parameter.POSITIONAL_OR_KEYWORD, annotation=None):
+    """
+    装饰器专用函数，对函数新增一个参数
+    :param name: 参数名
+    :param default: 参数默认值，默认没有
+    :param kind: 参数类型，默认POSITIONAL_OR_KEYWORD
+    :param annotation: 参数的注释，默认为空
+    """
     def dec(ori_func):
         def wrapper():
             __local = locals()
@@ -539,6 +607,10 @@ def wraps_add_one(name, default=Parameter.empty, kind=Parameter.POSITIONAL_OR_KE
 
 
 def wraps_add_multi(*parameters_info):
+    """
+    装饰器专用函数，对函数新增不定多个参数
+    :param parameters_info: 每个参数都必须是一个列表，列表长度为1~4，分别对应name（名称）、default（默认值，默认没有默认值）、kind（参数类型，默认POSITIONAL_OR_KEYWORD）、annotation（注释，默认为空）
+    """
     def dec(ori_func):
         def wrapper():
             __local = locals()
