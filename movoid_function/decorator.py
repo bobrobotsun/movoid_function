@@ -177,16 +177,18 @@ def get_parameter_priority(parameter):
     :param parameter:
     :return:
     """
+    if parameter.kind == Parameter.POSITIONAL_ONLY:
+        return 1
     if parameter.kind == Parameter.POSITIONAL_OR_KEYWORD:
         if parameter.default == Parameter.empty:
-            return 1
-        else:
             return 2
+        else:
+            return 3
     elif parameter.kind == Parameter.VAR_POSITIONAL:
         return 5
     elif parameter.kind == Parameter.KEYWORD_ONLY:
         return 6
-    elif parameter.kind == Parameter.VAR_POSITIONAL:
+    elif parameter.kind == Parameter.VAR_KEYWORD:
         return 10
 
 
@@ -210,7 +212,7 @@ def create_function_with_parameters_function_args(
     """
     wrap_code = wrapper.__code__
 
-    mod_co_arg_count = len([_v for _v in parameters if _v.kind == Parameter.POSITIONAL_OR_KEYWORD])
+    mod_co_arg_count = len([_v for _v in parameters if _v.kind in (Parameter.POSITIONAL_ONLY, Parameter.POSITIONAL_OR_KEYWORD)])
     mod_co_kwarg_count = len([_v for _v in parameters if _v.kind == Parameter.KEYWORD_ONLY])
     mod_co_flags = wrap_code.co_flags
     var_names = []
@@ -238,7 +240,7 @@ def create_function_with_parameters_function_args(
     default_kwarg_values = {}
     for _v in parameters:
         if _v.default != Parameter.empty:
-            if _v.kind == Parameter.POSITIONAL_OR_KEYWORD:
+            if _v.kind in (Parameter.POSITIONAL_ONLY, Parameter.POSITIONAL_OR_KEYWORD):
                 default_arg_values.append(_v.default)
             elif _v.kind == Parameter.KEYWORD_ONLY:
                 default_kwarg_values[_v.name] = _v.default
@@ -411,7 +413,7 @@ def wraps_func(ori_func, *args):
             func_arg_dict[kwargs_name] = []
             for i, v in Signature.from_callable(ori_func).parameters.items():
                 func_arg_dict[kwargs_name].append(i)
-                if v.kind == Parameter.POSITIONAL_OR_KEYWORD:
+                if v.kind in (Parameter.POSITIONAL_ONLY, Parameter.POSITIONAL_OR_KEYWORD):
                     if v.default is Parameter.empty:
                         parameter_dict['arg'].setdefault(i, v)
                     else:
@@ -428,7 +430,7 @@ def wraps_func(ori_func, *args):
             annotations.update(function.__annotations__)
             for i, v in Signature.from_callable(function).parameters.items():
                 func_arg_dict[kwargs_name].append(i)
-                if v.kind == Parameter.POSITIONAL_OR_KEYWORD:
+                if v.kind in (Parameter.POSITIONAL_ONLY, Parameter.POSITIONAL_OR_KEYWORD):
                     if v.default is Parameter.empty:
                         parameter_dict['arg'].setdefault(i, v)
                     else:
@@ -445,7 +447,7 @@ def wraps_func(ori_func, *args):
         annotations.update(run_func.__annotations__)
         wrap_code = wrapper.__code__
         ori_code: CodeType = ori_func.__code__
-        mod_co_arg_count = len([_v for _v in parameters if _v.kind == Parameter.POSITIONAL_OR_KEYWORD])
+        mod_co_arg_count = len([_v for _v in parameters if _v.kind in (Parameter.POSITIONAL_ONLY, Parameter.POSITIONAL_OR_KEYWORD)])
         mod_co_kwarg_count = len([_v for _v in parameters if _v.kind == Parameter.KEYWORD_ONLY])
         mod_co_flags = wrap_code.co_flags
         var_names = [_v.name for _v in parameters]
@@ -460,7 +462,7 @@ def wraps_func(ori_func, *args):
         default_kwarg_values = {}
         for _v in parameters:
             if _v.default != Parameter.empty:
-                if _v.kind == Parameter.POSITIONAL_OR_KEYWORD:
+                if _v.kind in (Parameter.POSITIONAL_ONLY, Parameter.POSITIONAL_OR_KEYWORD):
                     default_arg_values.append(_v.default)
                 elif _v.kind == Parameter.KEYWORD_ONLY:
                     default_kwarg_values[_v.name] = _v.default
@@ -513,7 +515,7 @@ def test2(a=2):
         default_kwarg_values = {}
         for i, v in Signature.from_callable(ori_func).parameters.items():
             if v.default != Parameter.empty:
-                if v.kind == Parameter.POSITIONAL_OR_KEYWORD:
+                if v.kind in (Parameter.POSITIONAL_ONLY, Parameter.POSITIONAL_OR_KEYWORD):
                     if i in run_parameter and run_parameter[i].default != Parameter.empty:
                         default_arg_values.append(run_parameter[i].default)
                     else:
@@ -652,7 +654,7 @@ def wraps_add_multi(*parameters_info):
     return dec
 
 
-def run_function_with_basic_args_and_supplement(ori_func, ori_args, ori_kwargs, other_func, other_args=None, other_kwargs=None):
+def adapt_call(ori_func, ori_args=None, ori_kwargs=None, other_func=None, other_args=None, other_kwargs=None, force=False):
     """
     在基础args和kwargs上，使用其他的args和kwargs对初始args和kwargs进行补充。在补充完毕后，传入函数进行运行。
     如果基础的args和kwargs存在多余的参数，那么也会被相应的删除
@@ -662,9 +664,52 @@ def run_function_with_basic_args_and_supplement(ori_func, ori_args, ori_kwargs, 
     :param other_func: 其他来源的function
     :param other_args: 补充args
     :param other_kwargs: 补充kwargs
+    :param force: 即使存在默认值，也会从other参数中选择并填充
     :return: 运行完毕后，返回
     """
     args = []
     kwargs = {}
     arg_dict = {}
+    ori_args = [] if ori_args is None else list(ori_args)
+    ori_kwargs = {} if ori_kwargs is None else dict(ori_kwargs)
+    other_dict = {}
+    if other_func is not None:
+        other_args = [] if other_args is None else list(other_args)
+        other_kwargs = {} if other_kwargs is None else dict(other_kwargs)
+        other_arg_dict = analyse_args_value_from_function(other_func, *other_args, **other_kwargs)
+        for key in ['arg', 'kwarg']:
+            other_dict.update(other_arg_dict.get(key, {}))
+        for key in ['args', 'kwargs']:
+            if other_arg_dict.get(key):
+                other_dict.update(list(other_arg_dict[key].values())[0])
+    ori_arg_dict = get_args_dict_from_function(ori_func)
+    now_index = 0
+    used_kwarg_key = []
+    for name, parameter in ori_arg_dict['arg'].items():
+        if len(ori_args) > now_index:
+            args.append(ori_args[now_index])
+        elif name in ori_kwargs:
+            args.append(ori_kwargs[name])
+            used_kwarg_key.append(name)
+        elif force or parameter.default is Signature.empty:
+            if name in other_dict:
+                args.append(other_dict[name])
+        else:
+            args.append(parameter.default)
+        now_index += 1
+    args += ori_args[now_index:]
+    for name, parameter in ori_arg_dict['kwarg'].items():
+        if name in used_kwarg_key:
+            continue
+        elif name in ori_kwargs:
+            kwargs[name] = ori_kwargs[name]
+            used_kwarg_key.append(name)
+        elif force or parameter.default is Signature.empty:
+            if name in other_dict:
+                kwargs[name] = other_dict[name]
+        else:
+            kwargs[name] = parameter.default
+    for key, value in ori_kwargs.items():
+        if key not in used_kwarg_key:
+            kwargs[key] = value
     return ori_func(*args, **kwargs)

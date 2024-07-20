@@ -10,7 +10,6 @@ import builtins
 import inspect
 import sys
 
-from test2 import test2_do_print, exchange
 from movoid_function.function import replace_function, ReplaceFunction
 
 
