@@ -696,7 +696,8 @@ def adapt_call(ori_func, ori_args=None, ori_kwargs=None, other_func=None, other_
         else:
             args.append(parameter.default)
         now_index += 1
-    args += ori_args[now_index:]
+    if ori_arg_dict['args']:
+        args += ori_args[now_index:]
     for name, parameter in ori_arg_dict['kwarg'].items():
         if name in used_kwarg_key:
             continue
@@ -708,7 +709,8 @@ def adapt_call(ori_func, ori_args=None, ori_kwargs=None, other_func=None, other_
                 kwargs[name] = other_dict[name]
         else:
             kwargs[name] = parameter.default
-    for key, value in ori_kwargs.items():
-        if key not in used_kwarg_key:
-            kwargs[key] = value
+    if ori_arg_dict['kwargs']:
+        for key, value in ori_kwargs.items():
+            if key not in used_kwarg_key:
+                kwargs[key] = value
     return ori_func(*args, **kwargs)
