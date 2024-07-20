@@ -677,11 +677,10 @@ def adapt_call(ori_func, ori_args=None, ori_kwargs=None, other_func=None, other_
         other_args = [] if other_args is None else list(other_args)
         other_kwargs = {} if other_kwargs is None else dict(other_kwargs)
         other_arg_dict = analyse_args_value_from_function(other_func, *other_args, **other_kwargs)
-        for key in ['arg', 'kwarg']:
+        for key in ['arg', 'args', 'kwarg']:
             other_dict.update(other_arg_dict.get(key, {}))
-        for key in ['args', 'kwargs']:
-            if other_arg_dict.get(key):
-                other_dict.update(list(other_arg_dict[key].values())[0])
+        if other_arg_dict.get('kwargs'):
+            other_dict.update(list(other_arg_dict['kwargs'].values())[0])
     ori_arg_dict = get_args_dict_from_function(ori_func)
     now_index = 0
     used_kwarg_key = []
