@@ -90,3 +90,9 @@ def replace_function(ori_func, tar_func):
     ori_package = inspect.getmodule(ori_func)
     func_name = ori_func.__name__
     setattr(ori_package, func_name, ReplaceFunction(ori_func, tar_func))
+
+
+def restore_function(tar_func):
+    ori_package = inspect.getmodule(tar_func.origin)
+    func_name = tar_func.origin.__name__
+    setattr(ori_package, func_name, tar_func.origin)
