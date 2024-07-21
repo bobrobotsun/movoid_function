@@ -1,2 +1,4 @@
 twine
 build
+pytest
+pytest-html
