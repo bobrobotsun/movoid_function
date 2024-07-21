@@ -6,9 +6,10 @@
 # Time          : 2024/7/21 1:00
 # Description   : 
 """
+import sys
 
 import pytest
-from movoid_function import Function
+from movoid_function import Function, ReplaceFunction, replace_function
 
 
 class Test_class_Function:
@@ -50,3 +51,20 @@ class Test_class_Function:
             pass
         else:
             raise AssertionError('it should not allow to get arguments')
+
+
+class Test_class_ReplaceFunction:
+    def test_01_replace_builtin_function(self):
+        def other_print(*args, sep=' ', end='\n'):
+            arg_list = [str(_) for _ in args]
+            print_text = 'this is other print:' + str(sep).join(arg_list) + str(end)
+            sys.stdout.write(print_text)
+            return print_text
+
+        replace_function(print, other_print)
+
+        assert print('a', 123, True, None, sep='-', end='~~') == 'this is other print:a-123-True-None~~'
+
+        print.use_ori()
+
+        assert print('b', -32, False, None, sep='!', end='<>') is None
