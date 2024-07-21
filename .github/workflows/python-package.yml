@@ -38,3 +38,8 @@ jobs:
       - name: Test with pytest
         run: |
           pytest
+      - name: show html report
+        uses: actions/upload-artifact@v4
+        with:
+          name: report
+          path: report.html
