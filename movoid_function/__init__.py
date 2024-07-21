@@ -10,5 +10,5 @@
 from .decorator import (wraps, wraps_kw, wraps_func,
                         wraps_ori, wraps_add_one, wraps_add_multi,
                         reset_function_default_value, analyse_args_value_from_function, adapt_call)
-from .function import Function, ReplaceFunction, replace_function
+from .function import Function, ReplaceFunction, replace_function, restore_function
 from .type import check_parameters_type

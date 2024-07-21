@@ -9,7 +9,7 @@
 import sys
 
 import pytest
-from movoid_function import Function, ReplaceFunction, replace_function
+from movoid_function import Function, ReplaceFunction, replace_function, restore_function
 
 
 class Test_class_Function:
@@ -63,8 +63,10 @@ class Test_class_ReplaceFunction:
 
         replace_function(print, other_print)
 
+        assert type(print) is ReplaceFunction
         assert print('a', 123, True, None, sep='-', end='~~') == 'this is other print:a-123-True-None~~'
 
-        print.use_ori()
+        restore_function(print)
 
+        assert type(print).__name__ == 'builtin_function_or_method'
         assert print('b', -32, False, None, sep='!', end='<>') is None
