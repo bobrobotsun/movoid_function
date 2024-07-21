@@ -41,5 +41,5 @@ jobs:
       - name: show html report
         uses: actions/upload-artifact@v4
         with:
-          name: report_${{ matrix.python-version }}
+          name: report_${{ matrix.python-version }}.html
           path: report.html
