@@ -9,10 +9,6 @@
 import inspect
 
 
-def empty_function(*args, **kwargs):
-    return None
-
-
 class Function:
     def __init__(self, func=None, args=None, kwargs=None, empty_ok=True):
         self._func = None
@@ -29,6 +25,9 @@ class Function:
         if callable(func):
             self._func = func
         elif empty_ok:
+            def empty_function(*arg, **kwarg):
+                return None
+
             self._func = empty_function
         else:
             raise NameError(f'try to create a invalid function: {func}')
