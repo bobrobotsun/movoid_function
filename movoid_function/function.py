@@ -60,39 +60,66 @@ class Function:
 
 class ReplaceFunction:
     def __init__(self, ori_func, tar_func):
-        self._ori = ori_func
-        self._tar = tar_func
-        self._now = tar_func
-        self.use_tar()
+        if isinstance(ori_func, ReplaceFunction):
+            self._history = ori_func.history
+        else:
+            self._history = [ori_func]
+        self._history.append(tar_func)
+        self._index = -1
+        self.use_last()
 
     def __call__(self, *args, **kwargs):
-        return self._now(*args, **kwargs)
+        return self.target(*args, **kwargs)
 
-    def _call(self, *args, **kwargs):
-        return self._now(*args, **kwargs)
+    def call(self, *args, **kwargs):
+        return self.target(*args, **kwargs)
 
     @property
     def origin(self):
-        return self._ori
+        return self._history[0]
 
     @property
     def target(self):
-        return self._tar
+        return self._history[self._index]
+
+    @property
+    def last(self):
+        return self._history[-1]
+
+    @property
+    def history(self) -> list:
+        return self._history
+
+    @property
+    def index(self):
+        return self._index
+
+    @index.setter
+    def index(self, value):
+        value = int(value) % len(self._history)
+        self._index = value
 
     def use_ori(self):
-        self._now = self._ori
+        self.index = 0
+        return self
 
-    def use_tar(self):
-        self._now = self._tar
+    def use_last(self):
+        self.index = -1
+        return self
 
 
 def replace_function(ori_func, tar_func):
-    ori_package = inspect.getmodule(ori_func)
-    func_name = ori_func.__name__
+    if isinstance(ori_func, ReplaceFunction):
+        ori = ori_func.origin
+    else:
+        ori = ori_func
+    ori_package = inspect.getmodule(ori)
+    func_name = ori.__name__
     setattr(ori_package, func_name, ReplaceFunction(ori_func, tar_func))
 
 
 def restore_function(tar_func):
-    ori_package = inspect.getmodule(tar_func.origin)
-    func_name = tar_func.origin.__name__
-    setattr(ori_package, func_name, tar_func.origin)
+    if isinstance(tar_func, ReplaceFunction):
+        ori_package = inspect.getmodule(tar_func.origin)
+        func_name = tar_func.origin.__name__
+        setattr(ori_package, func_name, tar_func.origin)
