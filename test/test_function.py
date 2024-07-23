@@ -70,3 +70,12 @@ class Test_class_ReplaceFunction:
 
         assert type(print).__name__ == 'builtin_function_or_method'
         assert print('b', -32, False, None, sep='!', end='<>') is None
+
+    def test_02_replace_builtin_function_cross_file(self):
+        def other_print(*args, sep=' ', end='\n'):
+            arg_list = [str(_) for _ in args]
+            print_text = 'this is test print:' + str(sep).join(arg_list) + str(end)
+            sys.stdout.write(print_text)
+            return print_text
+
+        replace_function(print, other_print)
