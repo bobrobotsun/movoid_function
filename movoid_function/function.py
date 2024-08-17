@@ -8,6 +8,8 @@
 """
 import inspect
 
+from .decorator import adapt_call
+
 
 class Function:
     def __init__(self, func=None, args=None, kwargs=None, empty_ok=True):
@@ -69,7 +71,8 @@ class ReplaceFunction:
         self.use_last()
 
     def __call__(self, *args, **kwargs):
-        return self.target(*args, **kwargs)
+        kwargs_with_ori = {'__origin': self.origin, **kwargs}
+        return adapt_call(self.target, args, kwargs_with_ori)
 
     def call(self, *args, **kwargs):
         return self.target(*args, **kwargs)
