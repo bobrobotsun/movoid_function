@@ -53,6 +53,22 @@ class Test_class_Function:
             raise AssertionError('it should not allow to get arguments')
 
 
+def do_origin(x):
+    x[0] += 1
+    return x
+
+
+def do_replace_without_origin(x):
+    x[0] += 2
+    return x
+
+
+def do_replace_with_origin(x, __origin):
+    __origin(x)
+    x[0] += 3
+    return x
+
+
 class Test_class_ReplaceFunction:
     def test_01_replace_print(self):
         def other_print(*args, sep=' ', end='\n'):
@@ -86,3 +102,24 @@ class Test_class_ReplaceFunction:
 
         assert type(print).__name__ == 'builtin_function_or_method'
         assert print('cfr', -3.2, [{}], sep='!', end='$%^&') is None
+
+    def test_02_replace_function_with_origin(self):
+        test_list = [1, 2, 3]
+        do_origin(test_list)
+        assert test_list[0] == 2
+        assert test_list[1] == 2
+        assert test_list[2] == 3
+
+        test_list = [1, 2, 3]
+        replace_function(do_origin, do_replace_without_origin)
+        do_origin(test_list)
+        assert test_list[0] == 3
+        assert test_list[1] == 2
+        assert test_list[2] == 3
+
+        test_list = [1, 2, 3]
+        replace_function(do_origin, do_replace_with_origin)
+        do_origin(test_list)
+        assert test_list[0] == 5
+        assert test_list[1] == 2
+        assert test_list[2] == 3
