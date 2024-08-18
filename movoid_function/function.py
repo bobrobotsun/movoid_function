@@ -61,21 +61,54 @@ class Function:
 
 
 class ReplaceFunction:
-    def __init__(self, ori_func, tar_func):
+    def __init__(self, ori_func, tar_func, setup=None, teardown=None):
         if isinstance(ori_func, ReplaceFunction):
             self._history = ori_func.history
+            self._setup = ori_func._setup
+            self._teardown = ori_func._teardown
         else:
             self._history = [ori_func]
+            self._setup = [None]
+            self._teardown = [None]
         self._history.append(tar_func)
+        if isinstance(setup, int):
+            real_setup = setup % (len(self._history) - 1)
+        else:
+            real_setup = None
+        self._setup.append(real_setup)
+        if isinstance(teardown, int):
+            real_teardown = teardown % (len(self._history) - 1)
+        else:
+            real_teardown = None
+        self._teardown.append(real_teardown)
         self._index = -1
+        self._setup_return = None
+        self._teardown_return = None
+        self._main_return = None
         self.use_last()
 
     def __call__(self, *args, **kwargs):
-        kwargs_with_ori = {'__origin': self.origin, **kwargs}
-        return adapt_call(self.target, args, kwargs_with_ori)
+        return self.call()(*args, **kwargs)
 
-    def call(self, *args, **kwargs):
-        return self.target(*args, **kwargs)
+    def call(self, index=None, refresh_return=True):
+        index = index % len(self._history) if isinstance(index, int) else self._index
+        refresh_return = refresh_return if isinstance(refresh_return, bool) else True
+
+        def wrapper(*args, **kwargs):
+            if self._setup[index] is not None:
+                _setup_return = self.call(self._setup[index], False)(*args, **kwargs)
+                if refresh_return:
+                    self._setup_return = _setup_return
+            _main_return = adapt_call(self._history[index], args, kwargs)
+            if refresh_return:
+                self._main_return = _main_return
+            if self._teardown[index] is not None:
+                _teardown_return = self.call(self._teardown[index], False)(*args, **kwargs)
+                if refresh_return:
+                    self._teardown_return = _teardown_return
+            return _main_return
+
+        return wrapper
 
     @property
     def origin(self):
@@ -102,6 +135,18 @@ class ReplaceFunction:
         value = int(value) % len(self._history)
         self._index = value
 
+    @property
+    def main_return(self):
+        return self._main_return
+
+    @property
+    def setup_return(self):
+        return self._setup_return
+
+    @property
+    def teardown_return(self):
+        return self._teardown_return
+
     def use_ori(self):
         self.index = 0
         return self
@@ -111,14 +156,22 @@ class ReplaceFunction:
         return self
 
 
-def replace_function(ori_func, tar_func):
+def replace_function(ori_func, tar_func, setup=None, teardown=None):
+    """
+    将固有的函数替换为目标函数，一般是用于替换builtin的函数，或者一些包的直接定义的函数
+    :param ori_func: 原始函数，直接传入就可以了，比如说直接传print
+    :param tar_func: 代替用的函数，未来在使用的过程中，就会使用这个函数生效
+    :param setup: 生效的时候，需不需要在执行前，执行一个被替换的函数，如果需要则建议输入0（原始函数）、-1（最后赋予的函数）进行代替
+    :param teardown: 生效的时候，需不需要在执行完毕后，执行一个被替换的函数，如果需要则建议输入0（原始函数）、-1（最后赋予的函数）进行代替
+    :return: 无
+    """
     if isinstance(ori_func, ReplaceFunction):
         ori = ori_func.origin
     else:
         ori = ori_func
     ori_package = inspect.getmodule(ori)
     func_name = ori.__name__
-    setattr(ori_package, func_name, ReplaceFunction(ori_func, tar_func))
+    setattr(ori_package, func_name, ReplaceFunction(ori_func, tar_func, setup=setup, teardown=teardown))
 
 
 def restore_function(tar_func):

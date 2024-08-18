@@ -58,14 +58,8 @@ def do_origin(x):
     return x
 
 
-def do_replace_without_origin(x):
+def do_replace(x):
     x[0] += 2
-    return x
-
-
-def do_replace_with_origin(x, __origin):
-    __origin(x)
-    x[0] += 3
     return x
 
 
@@ -103,23 +97,60 @@ class Test_class_ReplaceFunction:
         assert type(print).__name__ == 'builtin_function_or_method'
         assert print('cfr', -3.2, [{}], sep='!', end='$%^&') is None
 
+    def do_replace_class(self, x):
+        x[0] += 5
+        return x
+
     def test_02_replace_function_with_origin(self):
         test_list = [1, 2, 3]
         do_origin(test_list)
-        assert test_list[0] == 2
-        assert test_list[1] == 2
-        assert test_list[2] == 3
+        assert test_list[0] == 2 and test_list[1] == 2 and test_list[2] == 3
 
         test_list = [1, 2, 3]
-        replace_function(do_origin, do_replace_without_origin)
+        replace_function(do_origin, do_replace)
         do_origin(test_list)
-        assert test_list[0] == 3
-        assert test_list[1] == 2
-        assert test_list[2] == 3
+        assert test_list[0] == 3 and test_list[1] == 2 and test_list[2] == 3
 
         test_list = [1, 2, 3]
-        replace_function(do_origin, do_replace_with_origin)
+        replace_function(do_origin, do_replace, setup=0)
         do_origin(test_list)
-        assert test_list[0] == 5
-        assert test_list[1] == 2
-        assert test_list[2] == 3
+        assert test_list[0] == 4 and test_list[1] == 2 and test_list[2] == 3
+
+        test_list = [1, 2, 3]
+        replace_function(do_origin, do_replace, setup=-1)
+        do_origin(test_list)
+        assert test_list[0] == 6 and test_list[1] == 2 and test_list[2] == 3
+
+        test_list = [1, 2, 3]
+        replace_function(do_origin, self.do_replace_class)
+        do_origin(test_list)
+        assert test_list[0] == 6 and test_list[1] == 2 and test_list[2] == 3
+
+        test_list = [1, 2, 3]
+        replace_function(do_origin, self.do_replace_class, setup=0)
+        do_origin(test_list)
+        assert test_list[0] == 7 and test_list[1] == 2 and test_list[2] == 3
+
+        test_list = [1, 2, 3]
+        replace_function(do_origin, self.do_replace_class, setup=-1)
+        do_origin(test_list)
+        assert test_list[0] == 12 and test_list[1] == 2 and test_list[2] == 3
+
+        def do_replace_class_function(x):
+            x[0] += 10
+            return x
+
+        test_list = [1, 2, 3]
+        replace_function(do_origin, do_replace_class_function)
+        do_origin(test_list)
+        assert test_list[0] == 11 and test_list[1] == 2 and test_list[2] == 3
+
+        test_list = [1, 2, 3]
+        replace_function(do_origin, do_replace_class_function, setup=0)
+        do_origin(test_list)
+        assert test_list[0] == 12 and test_list[1] == 2 and test_list[2] == 3
+
+        test_list = [1, 2, 3]
+        replace_function(do_origin, do_replace_class_function, setup=-1)
+        do_origin(test_list)
+        assert test_list[0] == 22 and test_list[1] == 2 and test_list[2] == 3
