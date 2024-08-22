@@ -7,6 +7,7 @@
 # Description   : 
 """
 import inspect
+import re
 from inspect import Parameter, Signature
 from types import CodeType, FunctionType
 from typing import Union, Dict, List
@@ -714,3 +715,83 @@ def adapt_call(ori_func, ori_args=None, ori_kwargs=None, other_func=None, other_
             if key not in used_kwarg_key:
                 kwargs[key] = value
     return ori_func(*args, **kwargs)
+
+
+def decorate_class_function_include(decorator, *include, param=False, args=None, kwargs=None, regex=True):
+    """
+    类装饰器
+    把类内部的所有函数都增加一个装饰器
+    :param decorator: 装饰器本身
+    :param include: 规则文本
+    :param param: 是否要对装饰器输入参数
+    :param args: 输入参数
+    :param kwargs: 输入参数
+    :param regex: 规则是否是 正则规则，默认是
+    """
+    include = [str(_) for _ in include]
+    args = [] if args is None else args
+    kwargs = {} if kwargs is None else kwargs
+
+    def wrapper(cls):
+        for attr_name in dir(cls):
+            attr_value = getattr(cls, attr_name)
+            if not (attr_name.startswith('__') and attr_name.endswith('__')) and callable(attr_value):
+                dec_bool = False
+                for include_rule in include:
+                    if regex:
+                        if re.search(include_rule, attr_name):
+                            dec_bool = True
+                            break
+                    else:
+                        if attr_name == include_rule:
+                            dec_bool = True
+                            break
+                if dec_bool:
+                    if param:
+                        new_func = decorator(*args, **kwargs)(attr_value)
+                    else:
+                        new_func = decorator(attr_value)
+                    setattr(cls, attr_name, new_func)
+        return cls
+
+    return wrapper
+
+
+def decorate_class_function_exclude(decorator, *exclude, param=False, args=None, kwargs=None, regex=True):
+    """
+    类装饰器
+    把类内部的所有函数都增加一个装饰器
+    :param decorator: 装饰器本身
+    :param exclude: 规则文本
+    :param param: 是否要对装饰器输入参数
+    :param args: 输入参数
+    :param kwargs: 输入参数
+    :param regex: 规则是否是 正则规则，默认是
+    """
+    exclude = [str(_) for _ in exclude]
+    args = [] if args is None else args
+    kwargs = {} if kwargs is None else kwargs
+
+    def wrapper(cls):
+        for attr_name in dir(cls):
+            attr_value = getattr(cls, attr_name)
+            if not (attr_name.startswith('__') and attr_name.endswith('__')) and callable(attr_value):
+                dec_bool = True
+                for include_rule in exclude:
+                    if regex:
+                        if re.search(include_rule, attr_name):
+                            dec_bool = False
+                            break
+                    else:
+                        if attr_name != include_rule:
+                            dec_bool = False
+                            break
+                if dec_bool:
+                    if param:
+                        new_func = decorator(*args, **kwargs)(attr_value)
+                    else:
+                        new_func = decorator(attr_value)
+                    setattr(cls, attr_name, new_func)
+        return cls
+
+    return wrapper
