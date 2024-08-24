@@ -798,7 +798,7 @@ def decorate_class_function_include(decorator, *include, param=False, args=None,
     return wrapper
 
 
-def decorate_class_parent_function_exclude(decorator, *exclude, param=False, args=None, kwargs=None, regex=True, parent=False, class_method=False, static_method=False):
+def decorate_class_function_exclude(decorator, *exclude, param=False, args=None, kwargs=None, regex=True, parent=False, class_method=False, static_method=False):
     """
     类装饰器
     把类内部的所有函数都增加一个装饰器
