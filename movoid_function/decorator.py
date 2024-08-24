@@ -767,11 +767,10 @@ def decorate_class_function_include(decorator, *include, param=False, args=None,
 
     def wrapper(cls):
         if parent:
-            cls_function_list = dir(cls)
+            cls_attr_dict = {_: getattr(cls, _) for _ in dir(cls)}
         else:
-            cls_function_list = vars(cls)
-        for attr_name in cls_function_list:
-            attr_value = getattr(cls, attr_name)
+            cls_attr_dict = cls.__dict__
+        for attr_name, attr_value in cls_attr_dict.items():
             if not (attr_name.startswith('__') and attr_name.endswith('__')) and callable(attr_value):
                 if not class_method and isinstance(attr_value, classmethod):
                     continue
@@ -819,11 +818,10 @@ def decorate_class_function_exclude(decorator, *exclude, param=False, args=None,
 
     def wrapper(cls):
         if parent:
-            cls_function_list = dir(cls)
+            cls_attr_dict = {_: getattr(cls, _) for _ in dir(cls)}
         else:
-            cls_function_list = vars(cls)
-        for attr_name in cls_function_list:
-            attr_value = getattr(cls, attr_name)
+            cls_attr_dict = cls.__dict__
+        for attr_name, attr_value in cls_attr_dict.items():
             if not (attr_name.startswith('__') and attr_name.endswith('__')) and callable(attr_value):
                 if not class_method and isinstance(attr_value, classmethod):
                     continue
