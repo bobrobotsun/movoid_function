@@ -302,7 +302,7 @@ def wraps(ori_func):
         if all_doc == '':
             all_doc = None
 
-        return create_function_with_parameters_function_args(
+        new_function = create_function_with_parameters_function_args(
             parameters=parameters,
             real_run_func=run_func,
             run_arg_list=func_arg_list,
@@ -310,6 +310,11 @@ def wraps(ori_func):
             func_name=ori_code.co_name,
             func_doc=all_doc
         )
+        for attr_name in dir(ori_func):
+            if not (attr_name.startswith('__') and attr_name.endswith('__')):
+                attr_value = getattr(ori_func, attr_name)
+                setattr(new_function, attr_name, attr_value)
+        return new_function
 
     return dec
 
@@ -350,7 +355,7 @@ def wraps_kw(ori_func):
         if all_doc == '':
             all_doc = None
 
-        return create_function_with_parameters_function_args(
+        new_function = create_function_with_parameters_function_args(
             parameters=parameters,
             real_run_func=run_func,
             run_arg_list=func_arg_list,
@@ -358,6 +363,11 @@ def wraps_kw(ori_func):
             func_name=ori_code.co_name,
             func_doc=all_doc
         )
+        for attr_name in dir(ori_func):
+            if not (attr_name.startswith('__') and attr_name.endswith('__')):
+                attr_value = getattr(ori_func, attr_name)
+                setattr(new_function, attr_name, attr_value)
+        return new_function
 
     return dec
 
@@ -483,6 +493,10 @@ def wraps_func(ori_func, *args):
         modified_func.__annotations__ = annotations
         modified_func.__defaults__ = default_arg_values
         modified_func.__kwdefaults__ = default_kwarg_values
+        for attr_name in dir(ori_func):
+            if not (attr_name.startswith('__') and attr_name.endswith('__')):
+                attr_value = getattr(ori_func, attr_name)
+                setattr(modified_func, attr_name, attr_value)
         return modified_func
 
     return dec
@@ -560,7 +574,7 @@ def wraps_ori(ori_func):
         func_arg_list = get_args_name_from_parameters(list(Signature.from_callable(ori_func).parameters.values()))
         ori_code: CodeType = ori_func.__code__
 
-        return create_function_with_parameters_function_args(
+        new_function = create_function_with_parameters_function_args(
             parameters=parameters,
             real_run_func=ori_func,
             run_arg_list=func_arg_list,
@@ -568,6 +582,11 @@ def wraps_ori(ori_func):
             func_name=ori_code.co_name,
             func_doc=ori_func.__doc__
         )
+        for attr_name in dir(ori_func):
+            if not (attr_name.startswith('__') and attr_name.endswith('__')):
+                attr_value = getattr(ori_func, attr_name)
+                setattr(new_function, attr_name, attr_value)
+        return new_function
 
     return dec
 
@@ -603,7 +622,7 @@ def wraps_add_one(name, default=Parameter.empty, kind=Parameter.POSITIONAL_OR_KE
         func_arg_list = get_args_name_from_parameters(parameters)
         ori_code: CodeType = ori_func.__code__
 
-        return create_function_with_parameters_function_args(
+        new_function = create_function_with_parameters_function_args(
             parameters=parameters,
             real_run_func=ori_func,
             run_arg_list=func_arg_list,
@@ -611,6 +630,11 @@ def wraps_add_one(name, default=Parameter.empty, kind=Parameter.POSITIONAL_OR_KE
             func_name=ori_code.co_name,
             func_doc=ori_func.__doc__
         )
+        for attr_name in dir(ori_func):
+            if not (attr_name.startswith('__') and attr_name.endswith('__')):
+                attr_value = getattr(ori_func, attr_name)
+                setattr(new_function, attr_name, attr_value)
+        return new_function
 
     return dec
 
@@ -643,7 +667,7 @@ def wraps_add_multi(*parameters_info):
         func_arg_list = get_args_name_from_parameters(list(Signature.from_callable(ori_func).parameters.values()))
         ori_code: CodeType = ori_func.__code__
 
-        return create_function_with_parameters_function_args(
+        new_function = create_function_with_parameters_function_args(
             parameters=parameters,
             real_run_func=ori_func,
             run_arg_list=func_arg_list,
@@ -651,6 +675,11 @@ def wraps_add_multi(*parameters_info):
             func_name=ori_code.co_name,
             func_doc=ori_func.__doc__,
         )
+        for attr_name in dir(ori_func):
+            if not (attr_name.startswith('__') and attr_name.endswith('__')):
+                attr_value = getattr(ori_func, attr_name)
+                setattr(new_function, attr_name, attr_value)
+        return new_function
 
     return dec
 
