@@ -302,7 +302,7 @@ def wraps(ori_func):
         if all_doc == '':
             all_doc = None
 
-        return create_function_with_parameters_function_args(
+        new_function = create_function_with_parameters_function_args(
             parameters=parameters,
             real_run_func=run_func,
             run_arg_list=func_arg_list,
@@ -310,6 +310,11 @@ def wraps(ori_func):
             func_name=ori_code.co_name,
             func_doc=all_doc
         )
+        for attr_name in dir(ori_func):
+            if not (attr_name.startswith('__') and attr_name.endswith('__')):
+                attr_value = getattr(ori_func, attr_name)
+                setattr(new_function, attr_name, attr_value)
+        return new_function
 
     return dec
 
@@ -350,7 +355,7 @@ def wraps_kw(ori_func):
         if all_doc == '':
             all_doc = None
 
-        return create_function_with_parameters_function_args(
+        new_function = create_function_with_parameters_function_args(
             parameters=parameters,
             real_run_func=run_func,
             run_arg_list=func_arg_list,
@@ -358,6 +363,11 @@ def wraps_kw(ori_func):
             func_name=ori_code.co_name,
             func_doc=all_doc
         )
+        for attr_name in dir(ori_func):
+            if not (attr_name.startswith('__') and attr_name.endswith('__')):
+                attr_value = getattr(ori_func, attr_name)
+                setattr(new_function, attr_name, attr_value)
+        return new_function
 
     return dec
 
@@ -483,6 +493,10 @@ def wraps_func(ori_func, *args):
         modified_func.__annotations__ = annotations
         modified_func.__defaults__ = default_arg_values
         modified_func.__kwdefaults__ = default_kwarg_values
+        for attr_name in dir(ori_func):
+            if not (attr_name.startswith('__') and attr_name.endswith('__')):
+                attr_value = getattr(ori_func, attr_name)
+                setattr(modified_func, attr_name, attr_value)
         return modified_func
 
     return dec
@@ -529,6 +543,10 @@ def test2(a=2):
 
         wrapper.__defaults__ = tuple(default_arg_values)
         wrapper.__kwdefaults__ = default_kwarg_values
+        for attr_name in dir(ori_func):
+            if not (attr_name.startswith('__') and attr_name.endswith('__')):
+                attr_value = getattr(ori_func, attr_name)
+                setattr(wrapper, attr_name, attr_value)
         return wrapper
 
     return dec
@@ -560,7 +578,7 @@ def wraps_ori(ori_func):
         func_arg_list = get_args_name_from_parameters(list(Signature.from_callable(ori_func).parameters.values()))
         ori_code: CodeType = ori_func.__code__
 
-        return create_function_with_parameters_function_args(
+        new_function = create_function_with_parameters_function_args(
             parameters=parameters,
             real_run_func=ori_func,
             run_arg_list=func_arg_list,
@@ -568,6 +586,11 @@ def wraps_ori(ori_func):
             func_name=ori_code.co_name,
             func_doc=ori_func.__doc__
         )
+        for attr_name in dir(ori_func):
+            if not (attr_name.startswith('__') and attr_name.endswith('__')):
+                attr_value = getattr(ori_func, attr_name)
+                setattr(new_function, attr_name, attr_value)
+        return new_function
 
     return dec
 
@@ -603,7 +626,7 @@ def wraps_add_one(name, default=Parameter.empty, kind=Parameter.POSITIONAL_OR_KE
         func_arg_list = get_args_name_from_parameters(parameters)
         ori_code: CodeType = ori_func.__code__
 
-        return create_function_with_parameters_function_args(
+        new_function = create_function_with_parameters_function_args(
             parameters=parameters,
             real_run_func=ori_func,
             run_arg_list=func_arg_list,
@@ -611,6 +634,11 @@ def wraps_add_one(name, default=Parameter.empty, kind=Parameter.POSITIONAL_OR_KE
             func_name=ori_code.co_name,
             func_doc=ori_func.__doc__
         )
+        for attr_name in dir(ori_func):
+            if not (attr_name.startswith('__') and attr_name.endswith('__')):
+                attr_value = getattr(ori_func, attr_name)
+                setattr(new_function, attr_name, attr_value)
+        return new_function
 
     return dec
 
@@ -643,7 +671,7 @@ def wraps_add_multi(*parameters_info):
         func_arg_list = get_args_name_from_parameters(list(Signature.from_callable(ori_func).parameters.values()))
         ori_code: CodeType = ori_func.__code__
 
-        return create_function_with_parameters_function_args(
+        new_function = create_function_with_parameters_function_args(
             parameters=parameters,
             real_run_func=ori_func,
             run_arg_list=func_arg_list,
@@ -651,6 +679,11 @@ def wraps_add_multi(*parameters_info):
             func_name=ori_code.co_name,
             func_doc=ori_func.__doc__,
         )
+        for attr_name in dir(ori_func):
+            if not (attr_name.startswith('__') and attr_name.endswith('__')):
+                attr_value = getattr(ori_func, attr_name)
+                setattr(new_function, attr_name, attr_value)
+        return new_function
 
     return dec
 
@@ -717,7 +750,7 @@ def adapt_call(ori_func, ori_args=None, ori_kwargs=None, other_func=None, other_
     return ori_func(*args, **kwargs)
 
 
-def decorate_class_function_include(decorator, *include, param=False, args=None, kwargs=None, regex=True):
+def decorate_class_function_include(decorator, *include, param=False, args=None, kwargs=None, regex=True, parent=False, class_method=True, static_method=True):
     """
     类装饰器
     把类内部的所有函数都增加一个装饰器
@@ -727,37 +760,56 @@ def decorate_class_function_include(decorator, *include, param=False, args=None,
     :param args: 输入参数
     :param kwargs: 输入参数
     :param regex: 规则是否是 正则规则，默认是
+    :param parent: 该类的父类的函数是否受到影响，默认不影响
+    :param class_method: 是否对class method添加装饰器，默认加
+    :param static_method: 是否对static method添加装饰器，默认加
+    警告：如果parent设置为True，那么父类的staticmethod和classmethod可能会产生严重的逻辑错误，导致完全不能使用
     """
     include = [str(_) for _ in include]
     args = [] if args is None else args
     kwargs = {} if kwargs is None else kwargs
 
     def wrapper(cls):
-        for attr_name in dir(cls):
-            attr_value = getattr(cls, attr_name)
-            if not (attr_name.startswith('__') and attr_name.endswith('__')) and callable(attr_value):
-                dec_bool = False
-                for include_rule in include:
-                    if regex:
-                        if re.search(include_rule, attr_name):
-                            dec_bool = True
-                            break
-                    else:
-                        if attr_name == include_rule:
-                            dec_bool = True
-                            break
-                if dec_bool:
-                    if param:
-                        new_func = decorator(*args, **kwargs)(attr_value)
-                    else:
-                        new_func = decorator(attr_value)
-                    setattr(cls, attr_name, new_func)
+        if parent:
+            cls_attr_dict = {_: getattr(cls, _) for _ in dir(cls)}
+        else:
+            cls_attr_dict = cls.__dict__
+        for attr_name, attr_value in cls_attr_dict.items():
+            if not (attr_name.startswith('__') and attr_name.endswith('__')):
+                if not class_method and isinstance(attr_value, classmethod):
+                    continue
+                if not static_method and isinstance(attr_value, staticmethod):
+                    continue
+                if callable(attr_value) or isinstance(attr_value, (classmethod, staticmethod)):
+                    dec_bool = False
+                    for include_rule in include:
+                        if regex:
+                            if re.search(include_rule, attr_name):
+                                dec_bool = True
+                                break
+                        else:
+                            if attr_name == include_rule:
+                                dec_bool = True
+                                break
+                    if dec_bool:
+                        if isinstance(attr_value, (classmethod, staticmethod)):
+                            ori_func = attr_value.__func__
+                        else:
+                            ori_func = attr_value
+                        if param:
+                            new_func = decorator(*args, **kwargs)(ori_func)
+                        else:
+                            new_func = decorator(ori_func)
+                        if isinstance(attr_value, (classmethod, staticmethod)):
+                            setattr(cls, attr_name, attr_value.__class__(new_func))
+                        else:
+                            setattr(cls, attr_name, new_func)
         return cls
 
     return wrapper
 
 
-def decorate_class_function_exclude(decorator, *exclude, param=False, args=None, kwargs=None, regex=True):
+def decorate_class_function_exclude(decorator, *exclude, param=False, args=None, kwargs=None, regex=True, parent=False, class_method=True, static_method=True):
     """
     类装饰器
     把类内部的所有函数都增加一个装饰器
@@ -767,31 +819,51 @@ def decorate_class_function_exclude(decorator, *exclude, param=False, args=None,
     :param args: 输入参数
     :param kwargs: 输入参数
     :param regex: 规则是否是 正则规则，默认是
+    :param parent: 该类的父类的函数是否进行添加，默认不添加
+    :param class_method: 是否对class method添加装饰器，默认加
+    :param static_method: 是否对static method添加装饰器，默认加
+    警告：如果parent设置为True，那么父类的staticmethod和classmethod可能会产生严重的逻辑错误，导致完全不能使用
     """
     exclude = [str(_) for _ in exclude]
     args = [] if args is None else args
     kwargs = {} if kwargs is None else kwargs
 
     def wrapper(cls):
-        for attr_name in dir(cls):
-            attr_value = getattr(cls, attr_name)
-            if not (attr_name.startswith('__') and attr_name.endswith('__')) and callable(attr_value):
-                dec_bool = True
-                for include_rule in exclude:
-                    if regex:
-                        if re.search(include_rule, attr_name):
-                            dec_bool = False
-                            break
-                    else:
-                        if attr_name != include_rule:
-                            dec_bool = False
-                            break
-                if dec_bool:
-                    if param:
-                        new_func = decorator(*args, **kwargs)(attr_value)
-                    else:
-                        new_func = decorator(attr_value)
-                    setattr(cls, attr_name, new_func)
+        if parent:
+            cls_attr_dict = {_: getattr(cls, _) for _ in dir(cls)}
+        else:
+            cls_attr_dict = cls.__dict__
+        for attr_name, attr_value in cls_attr_dict.items():
+            if not (attr_name.startswith('__') and attr_name.endswith('__')):
+                if not class_method and isinstance(attr_value, classmethod):
+                    continue
+                if not static_method and isinstance(attr_value, staticmethod):
+                    continue
+                if callable(attr_value) or isinstance(attr_value, (classmethod, staticmethod)):
+                    dec_bool = True
+                    for include_rule in exclude:
+                        if regex:
+                            if re.search(include_rule, attr_name):
+                                dec_bool = False
+                                break
+                        else:
+                            if attr_name != include_rule:
+                                dec_bool = False
+                                break
+                    if dec_bool:
+                        if isinstance(attr_value, (classmethod, staticmethod)):
+                            ori_func = attr_value.__func__
+                        else:
+                            ori_func = attr_value
+                        if param:
+                            new_func = decorator(*args, **kwargs)(ori_func)
+                        else:
+                            new_func = decorator(ori_func)
+                        if isinstance(attr_value, (classmethod, staticmethod)):
+                            setattr(cls, attr_name, attr_value.__class__(new_func))
+                        else:
+                            setattr(cls, attr_name, new_func)
+
         return cls
 
     return wrapper
