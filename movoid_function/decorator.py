@@ -543,6 +543,10 @@ def test2(a=2):
 
         wrapper.__defaults__ = tuple(default_arg_values)
         wrapper.__kwdefaults__ = default_kwarg_values
+        for attr_name in dir(ori_func):
+            if not (attr_name.startswith('__') and attr_name.endswith('__')):
+                attr_value = getattr(ori_func, attr_name)
+                setattr(wrapper, attr_name, attr_value)
         return wrapper
 
     return dec
