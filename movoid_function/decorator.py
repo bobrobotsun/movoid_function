@@ -746,7 +746,7 @@ def adapt_call(ori_func, ori_args=None, ori_kwargs=None, other_func=None, other_
     return ori_func(*args, **kwargs)
 
 
-def decorate_class_function_include(decorator, *include, param=False, args=None, kwargs=None, regex=True, parent=False, class_method=False, static_method=False):
+def decorate_class_function_include(decorator, *include, param=False, args=None, kwargs=None, regex=True, parent=False, class_method=True, static_method=True):
     """
     类装饰器
     把类内部的所有函数都增加一个装饰器
@@ -757,9 +757,9 @@ def decorate_class_function_include(decorator, *include, param=False, args=None,
     :param kwargs: 输入参数
     :param regex: 规则是否是 正则规则，默认是
     :param parent: 该类的父类的函数是否受到影响，默认不影响
-    :param class_method: 是否对class method添加装饰器，默认不加
-    :param static_method: 是否对static method添加装饰器，默认不加
-    警告：如果parent、class_method、static_method设置为True，那么staticmethod可能会受到严重影响，甚至无法使用
+    :param class_method: 是否对class method添加装饰器，默认加
+    :param static_method: 是否对static method添加装饰器，默认加
+    警告：如果parent设置为True，那么父类的staticmethod和classmethod可能会产生严重的逻辑错误，导致完全不能使用
     """
     include = [str(_) for _ in include]
     args = [] if args is None else args
@@ -771,33 +771,41 @@ def decorate_class_function_include(decorator, *include, param=False, args=None,
         else:
             cls_attr_dict = cls.__dict__
         for attr_name, attr_value in cls_attr_dict.items():
-            if not (attr_name.startswith('__') and attr_name.endswith('__')) and callable(attr_value):
+            if not (attr_name.startswith('__') and attr_name.endswith('__')):
                 if not class_method and isinstance(attr_value, classmethod):
                     continue
                 if not static_method and isinstance(attr_value, staticmethod):
                     continue
-                dec_bool = False
-                for include_rule in include:
-                    if regex:
-                        if re.search(include_rule, attr_name):
-                            dec_bool = True
-                            break
-                    else:
-                        if attr_name == include_rule:
-                            dec_bool = True
-                            break
-                if dec_bool:
-                    if param:
-                        new_func = decorator(*args, **kwargs)(attr_value)
-                    else:
-                        new_func = decorator(attr_value)
-                    setattr(cls, attr_name, new_func)
+                if callable(attr_value) or isinstance(attr_value, (classmethod, staticmethod)):
+                    dec_bool = False
+                    for include_rule in include:
+                        if regex:
+                            if re.search(include_rule, attr_name):
+                                dec_bool = True
+                                break
+                        else:
+                            if attr_name == include_rule:
+                                dec_bool = True
+                                break
+                    if dec_bool:
+                        if isinstance(attr_value, (classmethod, staticmethod)):
+                            ori_func = attr_value.__func__
+                        else:
+                            ori_func = attr_value
+                        if param:
+                            new_func = decorator(*args, **kwargs)(ori_func)
+                        else:
+                            new_func = decorator(ori_func)
+                        if isinstance(attr_value, (classmethod, staticmethod)):
+                            setattr(cls, attr_name, attr_value.__class__(new_func))
+                        else:
+                            setattr(cls, attr_name, new_func)
         return cls
 
     return wrapper
 
 
-def decorate_class_function_exclude(decorator, *exclude, param=False, args=None, kwargs=None, regex=True, parent=False, class_method=False, static_method=False):
+def decorate_class_function_exclude(decorator, *exclude, param=False, args=None, kwargs=None, regex=True, parent=False, class_method=True, static_method=True):
     """
     类装饰器
     把类内部的所有函数都增加一个装饰器
@@ -808,9 +816,9 @@ def decorate_class_function_exclude(decorator, *exclude, param=False, args=None,
     :param kwargs: 输入参数
     :param regex: 规则是否是 正则规则，默认是
     :param parent: 该类的父类的函数是否进行添加，默认不添加
-    :param class_method: 是否对class method添加装饰器，默认不加
-    :param static_method: 是否对static method添加装饰器，默认不加
-    警告：如果parent、class_method、static_method设置为True，那么staticmethod可能会受到严重影响，甚至无法使用
+    :param class_method: 是否对class method添加装饰器，默认加
+    :param static_method: 是否对static method添加装饰器，默认加
+    警告：如果parent设置为True，那么父类的staticmethod和classmethod可能会产生严重的逻辑错误，导致完全不能使用
     """
     exclude = [str(_) for _ in exclude]
     args = [] if args is None else args
@@ -822,27 +830,36 @@ def decorate_class_function_exclude(decorator, *exclude, param=False, args=None,
         else:
             cls_attr_dict = cls.__dict__
         for attr_name, attr_value in cls_attr_dict.items():
-            if not (attr_name.startswith('__') and attr_name.endswith('__')) and callable(attr_value):
+            if not (attr_name.startswith('__') and attr_name.endswith('__')):
                 if not class_method and isinstance(attr_value, classmethod):
                     continue
                 if not static_method and isinstance(attr_value, staticmethod):
                     continue
-                dec_bool = True
-                for include_rule in exclude:
-                    if regex:
-                        if re.search(include_rule, attr_name):
-                            dec_bool = False
-                            break
-                    else:
-                        if attr_name != include_rule:
-                            dec_bool = False
-                            break
-                if dec_bool:
-                    if param:
-                        new_func = decorator(*args, **kwargs)(attr_value)
-                    else:
-                        new_func = decorator(attr_value)
-                    setattr(cls, attr_name, new_func)
+                if callable(attr_value) or isinstance(attr_value, (classmethod, staticmethod)):
+                    dec_bool = True
+                    for include_rule in exclude:
+                        if regex:
+                            if re.search(include_rule, attr_name):
+                                dec_bool = False
+                                break
+                        else:
+                            if attr_name != include_rule:
+                                dec_bool = False
+                                break
+                    if dec_bool:
+                        if isinstance(attr_value, (classmethod, staticmethod)):
+                            ori_func = attr_value.__func__
+                        else:
+                            ori_func = attr_value
+                        if param:
+                            new_func = decorator(*args, **kwargs)(ori_func)
+                        else:
+                            new_func = decorator(ori_func)
+                        if isinstance(attr_value, (classmethod, staticmethod)):
+                            setattr(cls, attr_name, attr_value.__class__(new_func))
+                        else:
+                            setattr(cls, attr_name, new_func)
+
         return cls
 
     return wrapper
