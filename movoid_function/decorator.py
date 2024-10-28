@@ -295,8 +295,8 @@ def wraps(ori_func):
         annotations.update(run_func.__annotations__)
         annotations.update(ori_func.__annotations__)
 
-        ori_doc = '' if ori_func.__doc__ is None else ori_func.__doc__
-        run_doc = '' if run_func.__doc__ is None else run_func.__doc__
+        ori_doc = '' if ori_func.__doc__ is None else ori_func.__doc__.strip('\n')
+        run_doc = '' if run_func.__doc__ is None else run_func.__doc__.strip('\n')
         all_doc = ori_doc + '\n' + run_doc
         all_doc.strip('\n')
         if all_doc == '':
@@ -348,8 +348,8 @@ def wraps_kw(ori_func):
         annotations.update(run_func.__annotations__)
         annotations.update(ori_func.__annotations__)
 
-        ori_doc = '' if ori_func.__doc__ is None else ori_func.__doc__
-        run_doc = '' if run_func.__doc__ is None else run_func.__doc__
+        ori_doc = '' if ori_func.__doc__ is None else ori_func.__doc__.strip('\n')
+        run_doc = '' if run_func.__doc__ is None else run_func.__doc__.strip('\n')
         all_doc = ori_doc + '\n' + run_doc
         all_doc.strip('\n')
         if all_doc == '':
@@ -489,7 +489,7 @@ def wraps_func(ori_func, *args):
         )
 
         modified_func = FunctionType(final_code, {'func': run_func, 'func_arg': func_arg_dict, 'locals': locals}, name=mod_co_name)
-        modified_func.__doc__ = '\n'.join([_ for _ in docs if _])
+        modified_func.__doc__ = '\n'.join([_.strip('\n') for _ in docs if _])
         modified_func.__annotations__ = annotations
         modified_func.__defaults__ = default_arg_values
         modified_func.__kwdefaults__ = default_kwarg_values
