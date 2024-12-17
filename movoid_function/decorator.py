@@ -195,6 +195,7 @@ def get_parameter_priority(parameter):
 
 def create_function_with_parameters_function_args(
         parameters,
+        return_annotation,
         real_run_func,
         run_arg_list: dict,
         wrapper,
@@ -204,6 +205,7 @@ def create_function_with_parameters_function_args(
     """
     可以按照既定的参数生成一个函数
     :param parameters: 新函数的parameters
+    :param return_annotation: 新函数的return_annotation
     :param real_run_func: 实际要被运行的函数
     :param run_arg_list: 实际要被运行的函数的参数列表
     :param wrapper: wrapper函数
@@ -256,6 +258,7 @@ def create_function_with_parameters_function_args(
         co_flags=mod_co_flags,
     )
     func_annotations = {_.name: _.annotation for _ in parameters if _.annotation != Parameter.empty}
+    func_annotations['return'] = return_annotation
 
     modified_func = FunctionType(final_code, {'func': real_run_func, 'func_arg': run_arg_list, 'locals': locals}, name=mod_co_name)
     modified_func.__doc__ = func_doc
@@ -304,6 +307,7 @@ def wraps(ori_func):
 
         new_function = create_function_with_parameters_function_args(
             parameters=parameters,
+            return_annotation=inspect.signature(ori_func).return_annotation,
             real_run_func=run_func,
             run_arg_list=func_arg_list,
             wrapper=wrapper,
@@ -357,6 +361,7 @@ def wraps_kw(ori_func):
 
         new_function = create_function_with_parameters_function_args(
             parameters=parameters,
+            return_annotation=inspect.signature(ori_func).return_annotation,
             real_run_func=run_func,
             run_arg_list=func_arg_list,
             wrapper=wrapper,
@@ -580,6 +585,7 @@ def wraps_ori(ori_func):
 
         new_function = create_function_with_parameters_function_args(
             parameters=parameters,
+            return_annotation=inspect.signature(ori_func).return_annotation,
             real_run_func=ori_func,
             run_arg_list=func_arg_list,
             wrapper=wrapper,
@@ -628,6 +634,7 @@ def wraps_add_one(name, default=Parameter.empty, kind=Parameter.POSITIONAL_OR_KE
 
         new_function = create_function_with_parameters_function_args(
             parameters=parameters,
+            return_annotation=inspect.signature(ori_func).return_annotation,
             real_run_func=ori_func,
             run_arg_list=func_arg_list,
             wrapper=wrapper,
@@ -673,6 +680,7 @@ def wraps_add_multi(*parameters_info):
 
         new_function = create_function_with_parameters_function_args(
             parameters=parameters,
+            return_annotation=inspect.signature(ori_func).return_annotation,
             real_run_func=ori_func,
             run_arg_list=func_arg_list,
             wrapper=wrapper,
@@ -822,7 +830,7 @@ def decorate_class_function_exclude(decorator, *exclude, param=False, args=None,
     :param parent: 该类的父类的函数是否进行添加，默认不添加
     :param class_method: 是否对class method添加装饰器，默认加
     :param static_method: 是否对static method添加装饰器，默认加
-    警告：如果parent设置为True，那么父类的staticmethod和classmethod可能会产生严重的逻辑错误，导致完全不能使用
+    警告：如果parent设置为True，那么父类的static method和class method可能会产生严重的逻辑错误，导致完全不能使用
     """
     exclude = [str(_) for _ in exclude]
     args = [] if args is None else args
