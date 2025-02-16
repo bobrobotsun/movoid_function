@@ -37,6 +37,69 @@ def get_args_dict_from_function(func) -> Dict[str, Dict[str, Parameter]]:
     return re_dict
 
 
+def get_parameter_kind_list_from_function(func) -> List[List[Parameter]]:
+    """
+    根据parameter的类型，将其分为5个list，按照顺序返回对应的list
+    :param func: 原函数
+    :return: [[position only],[position or keyword],[var position],[keyword only],[var keyword]]
+    """
+    re_value = [[], [], [], [], []]
+    for i, v in Signature.from_callable(func).parameters.items():
+        if v.kind == Parameter.VAR_KEYWORD:
+            re_value[4].append(v)
+        elif v.kind == Parameter.VAR_POSITIONAL:
+            re_value[2].append(v)
+        elif v.kind == Parameter.KEYWORD_ONLY:
+            re_value[3].append(v)
+        elif v.kind == Parameter.POSITIONAL_ONLY:
+            re_value[0].append(v)
+        else:
+            re_value[1].append(v)
+    return re_value
+
+
+def analyse_args_kw_value_from_function(func, *args, **kwargs):
+    """
+    根据函数和它输入的参数，解析每个参数在函数中的具体变量名，以方便从外部解析函数的参数输入
+    :param func:
+    :param args:
+    :param kwargs:
+    :return:
+    """
+    re_value = {}
+    param_list = get_parameter_kind_list_from_function(func)
+    position_list = param_list[0] + param_list[1]
+    for arg_index, arg_param in enumerate(position_list):
+        arg_name = arg_param.name
+        if arg_index < len(args):
+            re_value[arg_name] = args[arg_index]
+        else:
+            if arg_name in kwargs:
+                if arg_param.kind == Parameter.POSITIONAL_OR_KEYWORD:
+                    re_value[arg_name] = kwargs.pop(arg_name)
+                else:
+                    raise TypeError(f'function {func.__name__} positional argument "{arg_name}" is Positional Only, please do not use keyword to input')
+            elif arg_param.default == Parameter.empty:
+                raise TypeError(f'function {func.__name__} needs positional argument "{arg_name}"')
+            else:
+                re_value[arg_name] = arg_param.default
+    if param_list[2]:
+        args_name = param_list[2][0].name
+        re_value[args_name] = args[len(position_list):]
+    for kw_param in param_list[3]:
+        kw_name = kw_param.name
+        if kw_name in kwargs:
+            re_value[kw_name] = kwargs.pop(kw_name)
+        elif kw_param.default == Parameter.empty:
+            raise TypeError(f'function {func.__name__} needs keyword argument "{kw_name}"')
+        else:
+            re_value[kw_name] = kw_param.default
+    if param_list[4]:
+        kwargs_name = param_list[4][0].name
+        re_value[kwargs_name] = kwargs
+    return re_value
+
+
 def analyse_args_value_from_function(func, *args, **kwargs):
     """
     获得函数和对其传入的参数，解析每个参数分别的类型，和名称-值的对应关系
