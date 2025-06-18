@@ -938,3 +938,33 @@ def decorate_class_function_exclude(decorator, *exclude, param=False, args=None,
         return cls
 
     return wrapper
+
+
+def decorator_class_including_parents(decorator, exclude_class=object, param=False, args=None, kwargs=None):
+    """
+    类装饰器，会把这个类和这个类的所有父类均添加装饰器。直到exclude class中所包含的类为止
+    :param decorator: 装饰器
+    :param exclude_class: 中止的装饰器，可以直接输入类，或者输入一个iter
+    :param param: 装饰器是否需要传入参数
+    :param args: 装饰器传入的参数
+    :param kwargs: 装饰器传入的参数
+    :return:
+    """
+    exclude_class_list = [exclude_class] if inspect.isclass(exclude_class) else exclude_class
+    args = [] if args is None else args
+    kwargs = {} if kwargs is None else kwargs
+
+    def wrapper(cls):
+        for i_class in inspect.getmro(cls):
+            if i_class in exclude_class_list:
+                break
+            ori_package = inspect.getmodule(i_class)
+            cls_name = i_class.__name__
+            if param:
+                result_class = decorator(*args, **kwargs)(i_class)
+            else:
+                result_class = decorator(i_class)
+            setattr(ori_package, cls_name, result_class)
+        return cls
+
+    return wrapper
