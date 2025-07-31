@@ -126,7 +126,7 @@ def analyse_args_value_from_function(func, *args, **kwargs):
         re_dict['kwargs'] = {key: {}}
         temp_kw = {}
         for i, v in kwargs.items():
-            if i not in arg_dict['kwarg']:
+            if i not in arg_dict['kwarg'] and i not in arg_dict['arg']:
                 temp_kw[i] = v
         re_dict['kwargs'][key] = temp_kw
     return re_dict
@@ -159,7 +159,7 @@ def combine_parameter_from_functions(ori_func, run_func) -> List[Parameter]:
     for i, v in ori_dict['kwarg'].items():
         re_list.append(v)
     for i, v in run_dict['kwarg'].items():
-        if i not in ori_dict['kwarg']:
+        if i not in ori_dict['arg'] and i not in ori_dict['kwarg']:
             re_list.append(v)
     for i, v in ori_dict['kwargs'].items():
         re_list.append(v)
