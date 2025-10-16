@@ -113,14 +113,25 @@ def analyse_args_value_from_function(func, *args, **kwargs):
         'kwarg': {},
     }
     arg_dict = get_args_dict_from_function(func)
-    for i, v in enumerate(arg_dict['arg'].keys()):
-        re_dict['arg'][v] = args[i]
+    for index, name in enumerate(arg_dict['arg'].keys()):
+        param = arg_dict['arg'][name]
+        if index < len(args):
+            re_dict['arg'][name] = args[index]
+        elif param.default != Parameter.empty:
+            re_dict['arg'][name] = param.default
+        else:
+            raise TypeError(f'function {func.__name__} needs positional argument "{name}" which is index of {index}')
     if arg_dict['args']:
         re_dict['args'] = {}
         v = list(arg_dict['args'].keys())[0]
         re_dict['args'][f'{v}'] = list(args[len(arg_dict['arg']):])
-    for i in arg_dict['kwarg']:
-        re_dict['kwarg'][i] = kwargs[i]
+    for name, param in arg_dict['kwarg'].items():
+        if name in kwargs:
+            re_dict['kwarg'][name] = kwargs[name]
+        elif param.default != Parameter.empty:
+            re_dict['kwarg'][name] = param.default
+        else:
+            raise TypeError(f'function {func.__name__} needs keyword argument "{name}"')
     if arg_dict['kwargs']:
         key = list(arg_dict['kwargs'].keys())[0]
         re_dict['kwargs'] = {key: {}}
@@ -796,6 +807,24 @@ def adapt_call(ori_func, ori_args=None, ori_kwargs=None, other_func=None, other_
         args = ori_args
         kwargs = ori_kwargs
     else:
+        arg_keys = list(ori_arg_dict['arg'].keys())
+        if len(arg_keys) >= 1:
+            if arg_keys[0] == 'self':
+                if hasattr(ori_func, '__self__'):
+                    ori_self = ori_func.__self__
+                    if len(ori_args) >= 1:
+                        if ori_args[0] != ori_self:
+                            ori_args.insert(0, ori_self)
+                    else:
+                        ori_args.insert(0, ori_self)
+                else:
+                    if other_func is not None and hasattr(other_func, '__self__'):
+                        ori_self = other_func.__self__
+                        if len(ori_args) >= 1:
+                            if ori_args[0] != ori_self:
+                                ori_args.insert(0, ori_self)
+                        else:
+                            ori_args.insert(0, ori_self)
         now_index = 0
         used_kwarg_key = []
         for name, parameter in ori_arg_dict['arg'].items():
