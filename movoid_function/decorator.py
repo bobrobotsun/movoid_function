@@ -781,43 +781,52 @@ def adapt_call(ori_func, ori_args=None, ori_kwargs=None, other_func=None, other_
     if other_func is not None:
         other_args = [] if other_args is None else list(other_args)
         other_kwargs = {} if other_kwargs is None else dict(other_kwargs)
-        other_arg_dict = analyse_args_value_from_function(other_func, *other_args, **other_kwargs)
-        for key in ['arg', 'args', 'kwarg']:
-            other_dict.update(other_arg_dict.get(key, {}))
-        if other_arg_dict.get('kwargs'):
-            other_dict.update(list(other_arg_dict['kwargs'].values())[0])
-    ori_arg_dict = get_args_dict_from_function(ori_func)
-    now_index = 0
-    used_kwarg_key = []
-    for name, parameter in ori_arg_dict['arg'].items():
-        if len(ori_args) > now_index:
-            args.append(ori_args[now_index])
-        elif name in ori_kwargs:
-            args.append(ori_kwargs[name])
-            used_kwarg_key.append(name)
-        elif force or parameter.default is Signature.empty:
-            if name in other_dict:
-                args.append(other_dict[name])
+        try:
+            other_arg_dict = analyse_args_value_from_function(other_func, *other_args, **other_kwargs)
+        except:
+            pass
         else:
-            args.append(parameter.default)
-        now_index += 1
-    if ori_arg_dict['args']:
-        args += ori_args[now_index:]
-    for name, parameter in ori_arg_dict['kwarg'].items():
-        if name in used_kwarg_key:
-            continue
-        elif name in ori_kwargs:
-            kwargs[name] = ori_kwargs[name]
-            used_kwarg_key.append(name)
-        elif force or parameter.default is Signature.empty:
-            if name in other_dict:
-                kwargs[name] = other_dict[name]
-        else:
-            kwargs[name] = parameter.default
-    if ori_arg_dict['kwargs']:
-        for key, value in ori_kwargs.items():
-            if key not in used_kwarg_key:
-                kwargs[key] = value
+            for key in ['arg', 'args', 'kwarg']:
+                other_dict.update(other_arg_dict.get(key, {}))
+            if other_arg_dict.get('kwargs'):
+                other_dict.update(list(other_arg_dict['kwargs'].values())[0])
+    try:
+        ori_arg_dict = get_args_dict_from_function(ori_func)
+    except:
+        args = ori_args
+        kwargs = ori_kwargs
+    else:
+        now_index = 0
+        used_kwarg_key = []
+        for name, parameter in ori_arg_dict['arg'].items():
+            if len(ori_args) > now_index:
+                args.append(ori_args[now_index])
+            elif name in ori_kwargs:
+                args.append(ori_kwargs[name])
+                used_kwarg_key.append(name)
+            elif force or parameter.default is Signature.empty:
+                if name in other_dict:
+                    args.append(other_dict[name])
+            else:
+                args.append(parameter.default)
+            now_index += 1
+        if ori_arg_dict['args']:
+            args += ori_args[now_index:]
+        for name, parameter in ori_arg_dict['kwarg'].items():
+            if name in used_kwarg_key:
+                continue
+            elif name in ori_kwargs:
+                kwargs[name] = ori_kwargs[name]
+                used_kwarg_key.append(name)
+            elif force or parameter.default is Signature.empty:
+                if name in other_dict:
+                    kwargs[name] = other_dict[name]
+            else:
+                kwargs[name] = parameter.default
+        if ori_arg_dict['kwargs']:
+            for key, value in ori_kwargs.items():
+                if key not in used_kwarg_key:
+                    kwargs[key] = value
     return ori_func(*args, **kwargs)
 
 
