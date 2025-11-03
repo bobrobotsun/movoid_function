@@ -85,6 +85,7 @@ class ReplaceFunction:
         self._setup_return = None
         self._teardown_return = None
         self._main_return = None
+        self._ori_count = 0
         self.use_last()
 
     def __call__(self, *args, **kwargs):
@@ -153,6 +154,18 @@ class ReplaceFunction:
 
     def use_last(self):
         self.index = -1
+        return self
+
+    def multi_use_ori(self):
+        self._ori_count += 1
+        self.index = 0
+        return self
+
+    def multi_use_last(self):
+        self._ori_count -= 1
+        self._ori_count = max(0, self._ori_count)
+        if self._ori_count == 0:
+            self.index = -1
         return self
 
 
