@@ -12,6 +12,8 @@ from inspect import Parameter, Signature
 from types import CodeType, FunctionType
 from typing import Union, Dict, List
 
+from .stack import STACK
+
 
 def get_args_dict_from_function(func) -> Dict[str, Dict[str, Parameter]]:
     """
@@ -334,7 +336,14 @@ def create_function_with_parameters_function_args(
     func_annotations = {_.name: _.annotation for _ in parameters if _.annotation != Parameter.empty}
     func_annotations['return'] = return_annotation
 
-    modified_func = FunctionType(final_code, {'func': real_run_func, 'func_arg': run_arg_list, 'locals': locals}, name=mod_co_name)
+    modified_func = FunctionType(
+        final_code,
+        {
+            'func': real_run_func,
+            'func_arg': run_arg_list,
+            'locals': locals,
+        },
+        name=mod_co_name)
     modified_func.__doc__ = func_doc
     modified_func.__annotations__ = func_annotations
     modified_func.__defaults__ = default_arg_values
@@ -363,7 +372,8 @@ def wraps(ori_func):
                 __func_kwargs[__i] = __local[__i]  # noqa
             if func_arg['kwargs'] and func_arg['kwargs'] in __local:  # noqa
                 __func_kwargs.update(__local[func_arg['kwargs']])  # noqa
-            return func(*__func_args, **__func_kwargs)  # noqa
+            __re_value = func(*__func_args, **__func_kwargs)  # noqa
+            return __re_value
 
         parameters = combine_parameter_from_functions(ori_func, run_func)
         func_arg_list = get_args_name_from_parameters(parameters)
@@ -417,7 +427,8 @@ def wraps_kw(ori_func):
                 __func_kwargs[__i] = __local[__i]  # noqa
             if func_arg['kwargs'] and func_arg['kwargs'] in __local:  # noqa
                 __func_kwargs.update(__local[func_arg['kwargs']])  # noqa
-            return func(**__func_kwargs)  # noqa
+            __re_value = func(**__func_kwargs)  # noqa
+            return __re_value
 
         parameters = combine_parameter_from_functions(ori_func, run_func)
         func_arg_list = get_args_name_from_parameters(parameters)
@@ -472,7 +483,8 @@ def wraps_func(ori_func, *args):
                     __func_kwargs[__i] = {}
                     for __v2 in __v:
                         __func_kwargs[__i][__v2] = __local[__v2]
-            return func(**__func_kwargs)  # noqa
+            __re_value = func(**__func_kwargs)  # noqa
+            return __re_value
 
         func_arg_dict = {
             '': []
@@ -651,7 +663,8 @@ def wraps_ori(ori_func):
                 __func_kwargs[__i] = __local[__i]  # noqa
             if func_arg['kwargs'] and func_arg['kwargs'] in __local:  # noqa
                 __func_kwargs.update(__local[func_arg['kwargs']])  # noqa
-            return func(*__func_args, **__func_kwargs)  # noqa
+            __re_value = func(*__func_args, **__func_kwargs)  # noqa
+            return __re_value
 
         parameters = combine_parameter_from_functions(ori_func, run_func)
         func_arg_list = get_args_name_from_parameters(list(Signature.from_callable(ori_func).parameters.values()))
@@ -698,7 +711,8 @@ def wraps_add_one(name, default=Parameter.empty, kind=Parameter.POSITIONAL_OR_KE
                 __func_kwargs[__i] = __local[__i]  # noqa
             if func_arg['kwargs'] and func_arg['kwargs'] in __local:  # noqa
                 __func_kwargs.update(__local[func_arg['kwargs']])  # noqa
-            return func(*__func_args, **__func_kwargs)  # noqa
+            __re_value = func(*__func_args, **__func_kwargs)  # noqa
+            return __re_value
 
         parameters = list(Signature.from_callable(ori_func).parameters.values())
         new_parameter = analyse_additional_parameter(name=name, default=default, kind=kind, annotation=annotation)
@@ -744,7 +758,8 @@ def wraps_add_multi(*parameters_info):
                 __func_kwargs[__i] = __local[__i]  # noqa
             if func_arg['kwargs'] and func_arg['kwargs'] in __local:  # noqa
                 __func_kwargs.update(__local[func_arg['kwargs']])  # noqa
-            return func(*__func_args, **__func_kwargs)  # noqa
+            __re_value = func(*__func_args, **__func_kwargs)  # noqa
+            return __re_value
 
         parameters = list(Signature.from_callable(ori_func).parameters.values())
         new_parameters = [analyse_additional_parameter(_) for _ in parameters_info]
@@ -1006,3 +1021,7 @@ def decorator_class_including_parents(decorator, exclude_class=object, param=Fal
         return cls
 
     return wrapper
+
+
+STACK.file_should_ignore(__file__, '__re_value = func(*__func_args, **__func_kwargs)  # noqa')
+STACK.file_should_ignore(__file__, '__re_value = func(**__func_kwargs)  # noqa')
