@@ -1023,5 +1023,5 @@ def decorator_class_including_parents(decorator, exclude_class=object, param=Fal
     return wrapper
 
 
-STACK.file_should_ignore(__file__, '__re_value = func(*__func_args, **__func_kwargs)  # noqa')
-STACK.file_should_ignore(__file__, '__re_value = func(**__func_kwargs)  # noqa')
+STACK.file_should_ignore(__file__, '__re_value = func(*__func_args, **__func_kwargs)  # noqa', check_count=4)
+STACK.file_should_ignore(__file__, '__re_value = func(**__func_kwargs)  # noqa', check_count=2)
