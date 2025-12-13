@@ -65,7 +65,6 @@ class StackFrame:
                 self._module = frame.f_globals.get('__name__', '__unknown__')
             else:
                 self._module = '__unknown__'
-                print('globals------------',frame.f_globals)
             self._module_list = self._module.split('.')
             self._file_path = pathlib.Path(frame.f_code.co_filename).absolute().resolve()
             self._lineno = frame.f_lineno
@@ -83,7 +82,6 @@ class StackFrame:
                         self._module = module.f_globals.get('__name__', '__unknown__')
                     else:
                         self._module = '__unknown__'
-                        print(module.f_globals)
                     self._module_list = self._module.split('.')
                     self._file_path = pathlib.Path(module.f_code.co_filename).absolute().resolve()
                     self._lineno = module.f_lineno
@@ -238,18 +236,16 @@ class Stack:
             info_bool, level_bool = stack_frame.match(rule_i)
             if info_bool:
                 if level_bool:
-                    print(True,stack_frame,rule_i)
                     return True
                 else:
                     break
         if add_it:
             self.ignore_list.append(stack_frame)
-        print(False,stack_frame,self.ignore_list)
         return False
 
     def this_file_lineno_should_ignore(self, lineno: int, ignore_level: int = DECORATOR, check_text: str = '', encoding: str = 'utf8'):
         stack_frame = self.get_frame(1, skip_ignore_level=SKIP_MAX)
-        stack_frame._lineno = int(lineno)
+        stack_frame._lineno = None if lineno is None else int(lineno)
         stack_frame._level = int(ignore_level)
         stack_frame.self_check_str = str(check_text)
         stack_frame.encoding = encoding
@@ -258,36 +254,41 @@ class Stack:
     def module_should_ignore(self, module, ignore_level: int = DECORATOR):
         self.should_ignore(StackFrame(module, level=ignore_level), add_it=True)
 
-    def get_frame(self, stacklevel=None, skip_ignore_level=DECORATOR) -> StackFrame:
+    def get_frame(self, stacklevel=None, skip_ignore_level=DECORATOR, with_stack_level=False) -> Union[StackFrame, Tuple[StackFrame, int]]:
         """
         获取回退一定level后的栈的信息
         :param stacklevel: 后退栈的数量
         :param skip_ignore_level: 根据level来跳过ignore的list
+        :param with_stack_level: 返回值中是否包含相对于上一级的stack level
         :return: 目标栈
         """
         stack_frame = StackFrame(sys._getframe(), skip_ignore_level)
+        stack_index = 0
         stacklevel = 0 if stacklevel is None else stacklevel
         for f_index in range(stacklevel + 1):
             stack_frame = stack_frame.f_back
+            stack_index += 1
             while True:
                 if self.should_ignore(stack_frame):
                     stack_frame = stack_frame.f_back
+                    stack_index += 1
                     if stack_frame is None:
                         raise ValueError('frame back to None')
                 else:
                     break
             if stack_frame is None:
                 raise ValueError('frame back to None')
-        return stack_frame
+        re_value = (stack_frame, stack_index) if with_stack_level else stack_frame
+        return re_value
 
-    def get_frame_list(self, stacklevel=None, init_ignore_level=NO_SKIP, skip_ignore_level=DECORATOR, with_index=False) -> List[List[Union[StackFrame, int]]]:
+    def get_frame_list(self, stacklevel=None, init_ignore_level=NO_SKIP, skip_ignore_level=DECORATOR, with_stack_level=False) -> List[Union[StackFrame, Tuple[StackFrame, int]]]:
         """
         获取自己的所有的之前的栈的frame的列表
         :param stacklevel: 是否需要额外再回退若干栈
         :param init_ignore_level: 初始跳过stack level的时候
         :param skip_ignore_level: 是否要跳过那些需要ignore的栈
-        :param with_index: 是否在返回的列表里包含index信息
-        :return: 全部栈列表[[栈，回追的栈序号]]
+        :param with_stack_level: 是否在返回的列表里包含stack index信息
+        :return: 全部栈列表[(栈，回追的栈序号)] / [栈]
         """
         stacklevel = 0 if stacklevel is None else stacklevel
         stack_frame = self.get_frame(stacklevel=stacklevel + 1, skip_ignore_level=init_ignore_level)
@@ -300,7 +301,7 @@ class Stack:
                 index += 1
                 continue
             else:
-                re_list.append([stack_frame, index] if with_index else stack_frame)
+                re_list.append((stack_frame, index) if with_stack_level else stack_frame)
                 index += 1
                 stack_frame = stack_frame.f_back
         return re_list
