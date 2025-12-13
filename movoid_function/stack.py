@@ -147,7 +147,7 @@ class StackFrame:
 
     def match(self, other) -> Tuple[bool, bool]:
         if isinstance(other, StackFrame):
-            level_bool = other._level >= self._level
+            level_bool = other._level <= self._level
             if other._lineno is not None:
                 if self._lineno is not None:
                     return self._module == other._module and self._lineno == other._lineno, level_bool
@@ -244,7 +244,7 @@ class Stack:
         return False
 
     def this_file_lineno_should_ignore(self, lineno: int, ignore_level: int = DECORATOR, check_text: str = '', encoding: str = 'utf8'):
-        stack_frame = self.get_frame(1, skip_ignore_level=SKIP_MAX)
+        stack_frame = self.get_frame(1, skip_ignore_level=NO_SKIP)
         stack_frame._lineno = None if lineno is None else int(lineno)
         stack_frame._level = int(ignore_level)
         stack_frame.self_check_str = str(check_text)
