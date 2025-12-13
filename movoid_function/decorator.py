@@ -342,6 +342,7 @@ def create_function_with_parameters_function_args(
             'func': real_run_func,
             'func_arg': run_arg_list,
             'locals': locals,
+            '__name__': __name__,
         },
         name=mod_co_name)
     modified_func.__doc__ = func_doc
@@ -579,7 +580,11 @@ def wraps_func(ori_func, *args):
             co_flags=mod_co_flags,
         )
 
-        modified_func = FunctionType(final_code, {'func': run_func, 'func_arg': func_arg_dict, 'locals': locals}, name=mod_co_name)
+        modified_func = FunctionType(
+            final_code,
+            {'func': run_func, 'func_arg': func_arg_dict, 'locals': locals, '__name__': __name__, },
+            name=mod_co_name
+        )
         modified_func.__doc__ = '\n'.join([_.strip('\n') for _ in docs if _])
         modified_func.__annotations__ = annotations
         modified_func.__defaults__ = default_arg_values
@@ -1023,5 +1028,9 @@ def decorator_class_including_parents(decorator, exclude_class=object, param=Fal
     return wrapper
 
 
-STACK.file_should_ignore(__file__, '__re_value = func(*__func_args, **__func_kwargs)  # noqa', check_count=4)
-STACK.file_should_ignore(__file__, '__re_value = func(**__func_kwargs)  # noqa', check_count=2)
+STACK.this_file_lineno_should_ignore(376, check_text='__re_value = func(*__func_args, **__func_kwargs)  # noqa')
+STACK.this_file_lineno_should_ignore(671, check_text='__re_value = func(*__func_args, **__func_kwargs)  # noqa')
+STACK.this_file_lineno_should_ignore(719, check_text='__re_value = func(*__func_args, **__func_kwargs)  # noqa')
+STACK.this_file_lineno_should_ignore(766, check_text='__re_value = func(*__func_args, **__func_kwargs)  # noqa')
+STACK.this_file_lineno_should_ignore(431, check_text='__re_value = func(**__func_kwargs)  # noqa')
+STACK.this_file_lineno_should_ignore(487, check_text='__re_value = func(**__func_kwargs)  # noqa')

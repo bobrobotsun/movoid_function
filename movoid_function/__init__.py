@@ -14,4 +14,4 @@ from .decorator import (wraps, wraps_kw, wraps_func,
                         decorate_class_function_include, decorate_class_function_exclude, decorator_class_including_parents)
 from .function import Function, ReplaceFunction, replace_function, restore_function
 from .type import check_parameters_type
-from .stack import STACK, StackInfo
+from .stack import STACK, StackFrame
