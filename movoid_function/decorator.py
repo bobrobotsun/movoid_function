@@ -1034,3 +1034,4 @@ STACK.this_file_lineno_should_ignore(719, check_text='__re_value = func(*__func_
 STACK.this_file_lineno_should_ignore(766, check_text='__re_value = func(*__func_args, **__func_kwargs)  # noqa')
 STACK.this_file_lineno_should_ignore(431, check_text='__re_value = func(**__func_kwargs)  # noqa')
 STACK.this_file_lineno_should_ignore(487, check_text='__re_value = func(**__func_kwargs)  # noqa')
+STACK.this_file_lineno_should_ignore(879, check_text='return ori_func(*args, **kwargs)')

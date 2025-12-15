@@ -6,7 +6,7 @@ from movoid_function import STACK, wraps, stack
 
 class Test_class_Stack:
     def test_01_STACK_initial_ignore_list(self):
-        assert len(STACK.ignore_list) == 6
+        assert len(STACK.ignore_list) == 13
         STACK.self_check()
 
     def test_02_get_stack_info(self):

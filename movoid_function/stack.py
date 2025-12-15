@@ -65,8 +65,14 @@ class StackFrame:
                 self._module = frame.f_globals.get('__name__', '__unknown__')
             else:
                 self._module = '__unknown__'
+            try:
+                if frame.f_code.co_filename=='<string>':
+                    self._file_str=frame.f_code.co_filename
+                    self._module='<string>'
+                self._file_path = pathlib.Path(frame.f_code.co_filename).absolute().resolve()
+            except:
+                self._file_path = frame.f_globals.get('__file__', None)
             self._module_list = self._module.split('.')
-            self._file_path = pathlib.Path(frame.f_code.co_filename).absolute().resolve()
             self._lineno = frame.f_lineno
             self._func_name = frame.f_code.co_name
         elif inspect.ismodule(frame):

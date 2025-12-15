@@ -8,6 +8,7 @@
 """
 import inspect
 
+from .stack import STACK
 from .decorator import adapt_call
 
 
@@ -192,3 +193,11 @@ def restore_function(tar_func):
         ori_package = inspect.getmodule(tar_func.origin)
         func_name = tar_func.origin.__name__
         setattr(ori_package, func_name, tar_func.origin)
+
+
+STACK.this_file_lineno_should_ignore(42, check_text='re_value = self._func(*args, **kwargs)')
+STACK.this_file_lineno_should_ignore(44, check_text='re_value = self._func(*self._args, **self._kwargs)')
+STACK.this_file_lineno_should_ignore(93, check_text='return self.call()(*args, **kwargs)')
+STACK.this_file_lineno_should_ignore(101, check_text='_setup_return = self.call(self._setup[index], False)(*args, **kwargs)')
+STACK.this_file_lineno_should_ignore(104, check_text='_main_return = adapt_call(self._history[index], args, kwargs)')
+STACK.this_file_lineno_should_ignore(108, check_text='_teardown_return = self.call(self._teardown[index], False)(*args, **kwargs)')
