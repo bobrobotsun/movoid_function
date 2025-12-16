@@ -11,7 +11,7 @@ import math
 import pathlib
 import sys
 import types
-from typing import List, Tuple, Optional, Union
+from typing import List, Tuple, Optional, Union, Dict
 
 SKIP_MAX = 1_000_000
 CALL = 50
@@ -66,9 +66,9 @@ class StackFrame:
             else:
                 self._module = '__unknown__'
             try:
-                if frame.f_code.co_filename=='<string>':
-                    self._file_str=frame.f_code.co_filename
-                    self._module='<string>'
+                if frame.f_code.co_filename == '<string>':
+                    self._file_str = frame.f_code.co_filename
+                    self._module = '<string>'
                 self._file_path = pathlib.Path(frame.f_code.co_filename).absolute().resolve()
             except:
                 self._file_path = frame.f_globals.get('__file__', None)
@@ -165,6 +165,18 @@ class StackFrame:
         else:
             return self.match(StackFrame(other))
 
+    def match_ignore_dict(self, ignore_dict) -> bool:
+        for i in range(len(self._module_list), 0, -1):
+            module_str = '.'.join(self._module_list[:i])
+            if module_str in ignore_dict:
+                ignore_dict2 = ignore_dict[module_str]
+                if i == len(self._module_list) and self._lineno in ignore_dict2:
+                    return self._level >= ignore_dict2[self._lineno][0]
+                elif None in ignore_dict2:
+                    return self._level >= ignore_dict2[None][0]
+
+        return False
+
     def match_module(self, other) -> int:
         """
         纯粹考察module的关系，不考虑level
@@ -219,14 +231,30 @@ class StackFrame:
 
 
 class Stack:
-    ignore_list: List[StackFrame] = []
+    ignore_dict: Dict[str, Dict[Optional[int], Tuple[int, pathlib.Path, str, str]]] = {}
 
     def __init__(self):
         pass
 
     @property
+    def frame(self):
+        return inspect.currentframe().f_back
+
+    @property
+    def module(self):
+        frame = inspect.currentframe().f_back
+        if frame.f_code.co_filename == '<string>':
+            return '<string>'
+        else:
+            return frame.f_globals.get('__name__', '__unknown__')
+
+    @property
     def lineno(self):
         return inspect.currentframe().f_back.f_lineno
+
+    @property
+    def func_name(self):
+        return inspect.currentframe().f_back.f_code.co_name
 
     def __call__(self, frame, level=DECORATOR, self_check_str='', encoding='utf8'):
         return StackFrame(frame, level=level, self_check_str=self_check_str, encoding=encoding)
@@ -238,15 +266,14 @@ class Stack:
         :param add_it:
         :return:
         """
-        for rule_i in self.ignore_list:
-            info_bool, level_bool = stack_frame.match(rule_i)
-            if info_bool:
-                if level_bool:
-                    return True
-                else:
-                    break
+        match_bool = stack_frame.match_ignore_dict(self.ignore_dict)
+        if match_bool:
+            return True
         if add_it:
-            self.ignore_list.append(stack_frame)
+            if stack_frame._module in ('__main__', '__unknown__'):
+                raise ValueError(f'please do not add __main__ or unknown module to ignore dict')
+            self.ignore_dict.setdefault(stack_frame._module, {})
+            self.ignore_dict[stack_frame._module].setdefault(stack_frame._lineno, (stack_frame._level, stack_frame._file_path, stack_frame.self_check_str, stack_frame.encoding))
         return False
 
     def this_file_lineno_should_ignore(self, lineno: int, ignore_level: int = DECORATOR, check_text: str = '', encoding: str = 'utf8'):
@@ -313,8 +340,17 @@ class Stack:
         return re_list
 
     def self_check(self):
-        for i in self.ignore_list:
-            i.self_check()
+        for module, module_info in self.ignore_dict.items():
+            for lineno, lineno_info in self.ignore_dict[module].items():
+                if lineno is None:
+                    continue
+                level, file_path, self_check_str, encoding = lineno_info
+                if file_path is not None and self_check_str:
+                    with file_path.open('r', encoding=encoding) as f:
+                        for i in range(lineno - 1):
+                            f.readline()
+                        target_str = f.readline().strip()
+                    assert target_str == self_check_str, f'{target_str} != {self_check_str}, please check {file_path}:{lineno} first.'
 
 
 STACK = Stack()
