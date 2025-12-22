@@ -237,6 +237,10 @@ class Stack:
         pass
 
     @property
+    def stack_frame(self) -> StackFrame:
+        return self.get_frame(1)
+
+    @property
     def frame(self):
         return inspect.currentframe().f_back
 
@@ -301,6 +305,8 @@ class Stack:
         for f_index in range(stacklevel + 1):
             stack_frame = stack_frame.f_back
             stack_index += 1
+            if stack_frame is None:
+                raise ValueError('frame back to None')
             while True:
                 if self.should_ignore(stack_frame):
                     stack_frame = stack_frame.f_back
@@ -309,8 +315,6 @@ class Stack:
                         raise ValueError('frame back to None')
                 else:
                     break
-            if stack_frame is None:
-                raise ValueError('frame back to None')
         re_value = (stack_frame, stack_index) if with_stack_level else stack_frame
         return re_value
 
