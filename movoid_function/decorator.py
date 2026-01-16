@@ -14,6 +14,19 @@ from typing import Union, Dict, List
 
 from .stack import STACK
 
+builtin_function_args_dict = {
+    'print': {
+        'arg': {},
+        'args': {'args': Parameter('args', Parameter.VAR_POSITIONAL)},
+        'kwarg': {
+            'sep': Parameter('sep', Parameter.KEYWORD_ONLY, default=' '),
+            'end': Parameter('end', Parameter.KEYWORD_ONLY, default='\n'),
+            'file': Parameter('file', Parameter.KEYWORD_ONLY, default=None),
+        },
+        'kwargs': {}
+    }
+}
+
 
 def get_args_dict_from_function(func) -> Dict[str, Dict[str, Parameter]]:
     """
@@ -27,15 +40,21 @@ def get_args_dict_from_function(func) -> Dict[str, Dict[str, Parameter]]:
         'kwarg': {},
         'kwargs': {}
     }
-    for i, v in Signature.from_callable(func).parameters.items():
-        if v.kind == Parameter.VAR_KEYWORD:
-            re_dict['kwargs'][i] = v
-        elif v.kind == Parameter.VAR_POSITIONAL:
-            re_dict['args'][i] = v
-        elif v.kind == Parameter.KEYWORD_ONLY:
-            re_dict['kwarg'][i] = v
+    try:
+        for i, v in Signature.from_callable(func).parameters.items():
+            if v.kind == Parameter.VAR_KEYWORD:
+                re_dict['kwargs'][i] = v
+            elif v.kind == Parameter.VAR_POSITIONAL:
+                re_dict['args'][i] = v
+            elif v.kind == Parameter.KEYWORD_ONLY:
+                re_dict['kwarg'][i] = v
+            else:
+                re_dict['arg'][i] = v
+    except Exception as e:
+        if func.__name__ in builtin_function_args_dict:
+            return builtin_function_args_dict[func.__name__]
         else:
-            re_dict['arg'][i] = v
+            raise e
     return re_dict
 
 
@@ -1028,10 +1047,10 @@ def decorator_class_including_parents(decorator, exclude_class=object, param=Fal
     return wrapper
 
 
-STACK.this_file_lineno_should_ignore(376, check_text='__re_value = func(*__func_args, **__func_kwargs)  # noqa')
-STACK.this_file_lineno_should_ignore(671, check_text='__re_value = func(*__func_args, **__func_kwargs)  # noqa')
-STACK.this_file_lineno_should_ignore(719, check_text='__re_value = func(*__func_args, **__func_kwargs)  # noqa')
-STACK.this_file_lineno_should_ignore(766, check_text='__re_value = func(*__func_args, **__func_kwargs)  # noqa')
-STACK.this_file_lineno_should_ignore(431, check_text='__re_value = func(**__func_kwargs)  # noqa')
-STACK.this_file_lineno_should_ignore(487, check_text='__re_value = func(**__func_kwargs)  # noqa')
-STACK.this_file_lineno_should_ignore(879, check_text='return ori_func(*args, **kwargs)')
+STACK.this_file_lineno_should_ignore(395, check_text='__re_value = func(*__func_args, **__func_kwargs)  # noqa')
+STACK.this_file_lineno_should_ignore(690, check_text='__re_value = func(*__func_args, **__func_kwargs)  # noqa')
+STACK.this_file_lineno_should_ignore(738, check_text='__re_value = func(*__func_args, **__func_kwargs)  # noqa')
+STACK.this_file_lineno_should_ignore(785, check_text='__re_value = func(*__func_args, **__func_kwargs)  # noqa')
+STACK.this_file_lineno_should_ignore(450, check_text='__re_value = func(**__func_kwargs)  # noqa')
+STACK.this_file_lineno_should_ignore(506, check_text='__re_value = func(**__func_kwargs)  # noqa')
+STACK.this_file_lineno_should_ignore(898, check_text='return ori_func(*args, **kwargs)')
