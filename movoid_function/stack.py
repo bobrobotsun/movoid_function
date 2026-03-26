@@ -291,18 +291,27 @@ class Stack:
     def module_should_ignore(self, module, ignore_level: int = DECORATOR):
         self.should_ignore(StackFrame(module, level=ignore_level), add_it=True)
 
-    def get_frame(self, stacklevel=None, skip_ignore_level=DECORATOR, with_stack_level=False) -> Union[StackFrame, Tuple[StackFrame, int]]:
+    def get_frame(self, stacklevel=None, skip_ignore_level=DECORATOR, with_stack_level=False, from_error=False) -> Union[StackFrame, Tuple[StackFrame, int]]:
         """
         获取回退一定level后的栈的信息
         :param stacklevel: 后退栈的数量
         :param skip_ignore_level: 根据level来跳过ignore的list
         :param with_stack_level: 返回值中是否包含相对于上一级的stack level
+        :param from_error: 是否需要考虑error状态下的traceback的追溯
         :return: 目标栈
         """
-        stack_frame = StackFrame(sys._getframe(), skip_ignore_level)
+        if from_error:
+            last_traceback = sys.exc_info()[-1]
+            while last_traceback.tb_next:
+                last_traceback = last_traceback.tb_next
+            target_frame = last_traceback.tb_frame
+        else:
+            target_frame = sys._getframe()
+        stack_frame = StackFrame(target_frame, skip_ignore_level)
         stack_index = 0
         stacklevel = 0 if stacklevel is None else stacklevel
-        for f_index in range(stacklevel + 1):
+        stacklevel = stacklevel if from_error else stacklevel + 1
+        for f_index in range(stacklevel):
             stack_frame = stack_frame.f_back
             stack_index += 1
             if stack_frame is None:
@@ -318,17 +327,19 @@ class Stack:
         re_value = (stack_frame, stack_index) if with_stack_level else stack_frame
         return re_value
 
-    def get_frame_list(self, stacklevel=None, init_ignore_level=NO_SKIP, skip_ignore_level=DECORATOR, with_stack_level=False) -> List[Union[StackFrame, Tuple[StackFrame, int]]]:
+    def get_frame_list(self, stacklevel=None, init_ignore_level=NO_SKIP, skip_ignore_level=DECORATOR, with_stack_level=False, from_error=False) -> List[Union[StackFrame, Tuple[StackFrame, int]]]:
         """
         获取自己的所有的之前的栈的frame的列表
         :param stacklevel: 是否需要额外再回退若干栈
         :param init_ignore_level: 初始跳过stack level的时候
         :param skip_ignore_level: 是否要跳过那些需要ignore的栈
         :param with_stack_level: 是否在返回的列表里包含stack index信息
+        :param from_error: 是否需要考虑error状态下的traceback的追溯
         :return: 全部栈列表[(栈，回追的栈序号)] / [栈]
         """
         stacklevel = 0 if stacklevel is None else stacklevel
-        stack_frame = self.get_frame(stacklevel=stacklevel + 1, skip_ignore_level=init_ignore_level)
+        stacklevel = stacklevel if from_error else stacklevel + 1
+        stack_frame = self.get_frame(stacklevel=stacklevel, skip_ignore_level=init_ignore_level, from_error=from_error)
         stack_frame._level = skip_ignore_level
         re_list = []
         index = 0
