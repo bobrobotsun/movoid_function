@@ -10,7 +10,7 @@ import inspect
 import re
 from inspect import Parameter, Signature
 from types import CodeType, FunctionType
-from typing import Union, Dict, List
+from typing import Callable, Union, Dict, List
 
 from .stack import STACK
 
@@ -292,6 +292,7 @@ def create_function_with_parameters_function_args(
         parameters,
         return_annotation,
         real_run_func,
+        ori_dec_func: Callable,
         run_arg_list: dict,
         wrapper,
         func_name: str,
@@ -302,6 +303,7 @@ def create_function_with_parameters_function_args(
     :param parameters: 新函数的parameters
     :param return_annotation: 新函数的return_annotation
     :param real_run_func: 实际要被运行的函数
+    :param ori_dec_func: 一般来说函数需要执行的步骤都在这个函数里面，这是基础逻辑的来源
     :param run_arg_list: 实际要被运行的函数的参数列表
     :param wrapper: wrapper函数
     :param func_name: 新函数名称，一般为ori_func的名称
@@ -364,10 +366,16 @@ def create_function_with_parameters_function_args(
             '__name__': __name__,
         },
         name=mod_co_name)
+    modified_func.__dict__.update(real_run_func.__dict__)
+    modified_func.__dict__.update(ori_dec_func.__dict__)
     modified_func.__doc__ = func_doc
     modified_func.__annotations__ = func_annotations
     modified_func.__defaults__ = default_arg_values
     modified_func.__kwdefaults__ = default_kwarg_values
+    modified_func.__signature__ = inspect.Signature(parameters)
+    modified_func.__module__ = ori_dec_func.__module__
+    modified_func.__qualname__ = ori_dec_func.__qualname__
+    modified_func.__wrapped__ = ori_dec_func
     return modified_func
 
 
@@ -380,7 +388,7 @@ def wraps(ori_func):
 
     def dec(run_func):
         def wrapper():
-            __local = locals()
+            __local = locals().copy()
             __func_args = []
             __func_kwargs = {}
             for __i in func_arg['arg']:  # noqa
@@ -413,15 +421,12 @@ def wraps(ori_func):
             parameters=parameters,
             return_annotation=inspect.signature(ori_func).return_annotation,
             real_run_func=run_func,
+            ori_dec_func=ori_func,
             run_arg_list=func_arg_list,
             wrapper=wrapper,
             func_name=ori_code.co_name,
             func_doc=all_doc
         )
-        for attr_name in dir(ori_func):
-            if not (attr_name.startswith('__') and attr_name.endswith('__')):
-                attr_value = getattr(ori_func, attr_name)
-                setattr(new_function, attr_name, attr_value)
         return new_function
 
     return dec
@@ -436,7 +441,7 @@ def wraps_kw(ori_func):
 
     def dec(run_func):
         def wrapper():
-            __local = locals()
+            __local = locals().copy()
             __func_kwargs = {}
             for __i in func_arg['arg']:  # noqa
                 if __i in __local:
@@ -468,15 +473,12 @@ def wraps_kw(ori_func):
             parameters=parameters,
             return_annotation=inspect.signature(ori_func).return_annotation,
             real_run_func=run_func,
+            ori_dec_func=ori_func,
             run_arg_list=func_arg_list,
             wrapper=wrapper,
             func_name=ori_code.co_name,
             func_doc=all_doc
         )
-        for attr_name in dir(ori_func):
-            if not (attr_name.startswith('__') and attr_name.endswith('__')):
-                attr_value = getattr(ori_func, attr_name)
-                setattr(new_function, attr_name, attr_value)
         return new_function
 
     return dec
@@ -493,7 +495,7 @@ def wraps_func(ori_func, *args):
 
     def dec(run_func):
         def wrapper():
-            __local = locals()
+            __local = locals().copy()
             __func_kwargs = {}
             for __i, __v in func_arg.items():  # noqa
                 if __i == '':
@@ -601,17 +603,24 @@ def wraps_func(ori_func, *args):
 
         modified_func = FunctionType(
             final_code,
-            {'func': run_func, 'func_arg': func_arg_dict, 'locals': locals, '__name__': __name__, },
+            {
+                'func': run_func,
+                'func_arg': func_arg_dict,
+                'locals': locals,
+                '__name__': __name__,
+            },
             name=mod_co_name
         )
+        modified_func.__dict__.update(run_func.__dict__)
+        modified_func.__dict__.update(ori_func.__dict__)
         modified_func.__doc__ = '\n'.join([_.strip('\n') for _ in docs if _])
         modified_func.__annotations__ = annotations
         modified_func.__defaults__ = default_arg_values
         modified_func.__kwdefaults__ = default_kwarg_values
-        for attr_name in dir(ori_func):
-            if not (attr_name.startswith('__') and attr_name.endswith('__')):
-                attr_value = getattr(ori_func, attr_name)
-                setattr(modified_func, attr_name, attr_value)
+        modified_func.__module__ = ori_func.__module__
+        modified_func.__qualname__ = ori_func.__qualname__
+        modified_func.__wrapped__ = ori_func
+        modified_func.__signature__ = inspect.Signature(parameters)
         return modified_func
 
     return dec
@@ -626,7 +635,7 @@ def reset_function_default_value(ori_func):
 def test1(a=1,b=2,c=4):
     ...
 
-@reset_function_default_value
+@reset_function_default_value(test1)
 def test2(a=2):
     pass
 
@@ -643,25 +652,33 @@ def test2(a=2):
         run_parameter = {i: v for i, v in Signature.from_callable(run_func).parameters.items()}
         default_arg_values = []
         default_kwarg_values = {}
+        total_parameters=[]
         for i, v in Signature.from_callable(ori_func).parameters.items():
-            if v.default != Parameter.empty:
-                if v.kind in (Parameter.POSITIONAL_ONLY, Parameter.POSITIONAL_OR_KEYWORD):
-                    if i in run_parameter and run_parameter[i].default != Parameter.empty:
-                        default_arg_values.append(run_parameter[i].default)
-                    else:
+            this_parameter=v
+            if v.kind in (Parameter.POSITIONAL_ONLY, Parameter.POSITIONAL_OR_KEYWORD):
+                if i in run_parameter and run_parameter[i].default != Parameter.empty:
+                    default_arg_values.append(run_parameter[i].default)
+                    this_parameter=this_parameter.replace(default=run_parameter[i].default)
+                else:
+                    if v.default != Parameter.empty:
                         default_arg_values.append(v.default)
-                elif v.kind == Parameter.KEYWORD_ONLY:
-                    if i in run_parameter and run_parameter[i].default != Parameter.empty:
-                        default_kwarg_values[i] = run_parameter[i].default
-                    else:
+            elif v.kind == Parameter.KEYWORD_ONLY:
+                if i in run_parameter and run_parameter[i].default != Parameter.empty:
+                    default_kwarg_values[i] = run_parameter[i].default
+                    this_parameter=this_parameter.replace(default=run_parameter[i].default)
+                else:
+                    if v.default != Parameter.empty:
                         default_kwarg_values[i] = v.default
+            total_parameters.append(this_parameter)
 
+        wrapper.__dict__.update(run_func.__dict__)
+        wrapper.__dict__.update(ori_func.__dict__)
         wrapper.__defaults__ = tuple(default_arg_values)
         wrapper.__kwdefaults__ = default_kwarg_values
-        for attr_name in dir(ori_func):
-            if not (attr_name.startswith('__') and attr_name.endswith('__')):
-                attr_value = getattr(ori_func, attr_name)
-                setattr(wrapper, attr_name, attr_value)
+        wrapper.__module__ = ori_func.__module__
+        wrapper.__qualname__ = ori_func.__qualname__
+        wrapper.__wrapped__ = ori_func
+        wrapper.__signature__ = inspect.Signature(total_parameters)
         return wrapper
 
     return dec
@@ -675,7 +692,7 @@ def wraps_ori(ori_func):
 
     def dec(run_func):
         def wrapper():
-            __local = locals()
+            __local = locals().copy()
             __func_args = []
             __func_kwargs = {}
             for __i in func_arg['arg']:  # noqa
@@ -697,16 +714,13 @@ def wraps_ori(ori_func):
         new_function = create_function_with_parameters_function_args(
             parameters=parameters,
             return_annotation=inspect.signature(ori_func).return_annotation,
-            real_run_func=ori_func,
+            real_run_func=run_func,
+            ori_dec_func=ori_func,
             run_arg_list=func_arg_list,
             wrapper=wrapper,
             func_name=ori_code.co_name,
             func_doc=ori_func.__doc__
         )
-        for attr_name in dir(ori_func):
-            if not (attr_name.startswith('__') and attr_name.endswith('__')):
-                attr_value = getattr(ori_func, attr_name)
-                setattr(new_function, attr_name, attr_value)
         return new_function
 
     return dec
@@ -723,7 +737,7 @@ def wraps_add_one(name, default=Parameter.empty, kind=Parameter.POSITIONAL_OR_KE
 
     def dec(ori_func):
         def wrapper():
-            __local = locals()
+            __local = locals().copy()
             __func_args = []
             __func_kwargs = {}
             for __i in func_arg['arg']:  # noqa
@@ -748,15 +762,12 @@ def wraps_add_one(name, default=Parameter.empty, kind=Parameter.POSITIONAL_OR_KE
             parameters=parameters,
             return_annotation=inspect.signature(ori_func).return_annotation,
             real_run_func=ori_func,
+            ori_dec_func=ori_func,
             run_arg_list=func_arg_list,
             wrapper=wrapper,
             func_name=ori_code.co_name,
             func_doc=ori_func.__doc__
         )
-        for attr_name in dir(ori_func):
-            if not (attr_name.startswith('__') and attr_name.endswith('__')):
-                attr_value = getattr(ori_func, attr_name)
-                setattr(new_function, attr_name, attr_value)
         return new_function
 
     return dec
@@ -770,7 +781,7 @@ def wraps_add_multi(*parameters_info):
 
     def dec(ori_func):
         def wrapper():
-            __local = locals()
+            __local = locals().copy()
             __func_args = []
             __func_kwargs = {}
             for __i in func_arg['arg']:  # noqa
@@ -795,15 +806,12 @@ def wraps_add_multi(*parameters_info):
             parameters=parameters,
             return_annotation=inspect.signature(ori_func).return_annotation,
             real_run_func=ori_func,
+            ori_dec_func=ori_func,
             run_arg_list=func_arg_list,
             wrapper=wrapper,
             func_name=ori_code.co_name,
             func_doc=ori_func.__doc__,
         )
-        for attr_name in dir(ori_func):
-            if not (attr_name.startswith('__') and attr_name.endswith('__')):
-                attr_value = getattr(ori_func, attr_name)
-                setattr(new_function, attr_name, attr_value)
         return new_function
 
     return dec
@@ -1047,10 +1055,10 @@ def decorator_class_including_parents(decorator, exclude_class=object, param=Fal
     return wrapper
 
 
-STACK.this_file_lineno_should_ignore(395, check_text='__re_value = func(*__func_args, **__func_kwargs)  # noqa')
-STACK.this_file_lineno_should_ignore(690, check_text='__re_value = func(*__func_args, **__func_kwargs)  # noqa')
-STACK.this_file_lineno_should_ignore(738, check_text='__re_value = func(*__func_args, **__func_kwargs)  # noqa')
-STACK.this_file_lineno_should_ignore(785, check_text='__re_value = func(*__func_args, **__func_kwargs)  # noqa')
-STACK.this_file_lineno_should_ignore(450, check_text='__re_value = func(**__func_kwargs)  # noqa')
-STACK.this_file_lineno_should_ignore(506, check_text='__re_value = func(**__func_kwargs)  # noqa')
-STACK.this_file_lineno_should_ignore(898, check_text='return ori_func(*args, **kwargs)')
+STACK.this_file_lineno_should_ignore(403, check_text='__re_value = func(*__func_args, **__func_kwargs)  # noqa')
+STACK.this_file_lineno_should_ignore(707, check_text='__re_value = func(*__func_args, **__func_kwargs)  # noqa')
+STACK.this_file_lineno_should_ignore(752, check_text='__re_value = func(*__func_args, **__func_kwargs)  # noqa')
+STACK.this_file_lineno_should_ignore(796, check_text='__re_value = func(*__func_args, **__func_kwargs)  # noqa')
+STACK.this_file_lineno_should_ignore(455, check_text='__re_value = func(**__func_kwargs)  # noqa')
+STACK.this_file_lineno_should_ignore(508, check_text='__re_value = func(**__func_kwargs)  # noqa')
+STACK.this_file_lineno_should_ignore(906, check_text='return ori_func(*args, **kwargs)')
